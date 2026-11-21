@@ -1,7 +1,7 @@
 """Tests for a Flair with optional parts fitted."""
 
-from homeassistant.const import STATE_ON
 from homeassistant.core import HomeAssistant
+from homeassistant.helpers import entity_registry as er
 from modbus_connection.mock import MockModbusUnit
 import pytest
 
@@ -18,10 +18,16 @@ def mock_unit(mock_unit: MockModbusUnit) -> MockModbusUnit:
 
 @pytest.mark.usefixtures("init_integration")
 async def test_optional_parts(hass: HomeAssistant) -> None:
-    """Optional parts get their own entities."""
-    assert hass.states.get("sensor.flair_humidity").state == "61"
-    assert hass.states.get("binary_sensor.flair_preheater").state == STATE_ON
-    assert hass.states.get("sensor.flair_preheater_capacity").state == "40"
-    assert hass.states.get("sensor.flair_co2_sensor_1").state == "650"
-    assert hass.states.get("sensor.flair_co2_sensor_2").state == "820"
-    assert hass.states.get("sensor.flair_co2_sensor_3").state == "unknown"
+    """Optional parts get their own entities, disabled by default."""
+    registry = er.async_get(hass)
+    for entity_id in (
+        "sensor.flair_humidity",
+        "binary_sensor.flair_preheater",
+        "sensor.flair_preheater_capacity",
+        "sensor.flair_co2_sensor_1",
+        "sensor.flair_co2_sensor_2",
+        "sensor.flair_co2_sensor_3",
+    ):
+        entry = registry.async_get(entity_id)
+        assert entry is not None, entity_id
+        assert entry.disabled, entity_id

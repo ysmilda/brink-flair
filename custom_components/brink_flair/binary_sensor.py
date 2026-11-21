@@ -51,6 +51,7 @@ BINARY_SENSORS: tuple[BrinkFlairBinarySensorDescription, ...] = (
         key="preheater",
         translation_key="preheater",
         device_class=BinarySensorDeviceClass.HEAT,
+        entity_registry_enabled_default=False,
         value_fn=lambda state: (
             state.preheater_status == 2 if state.preheater_status is not None else None
         ),

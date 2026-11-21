@@ -127,6 +127,7 @@ def _co2(number: int) -> BrinkFlairSensorDescription:
         device_class=SensorDeviceClass.CO2,
         native_unit_of_measurement=CONCENTRATION_PARTS_PER_MILLION,
         state_class=SensorStateClass.MEASUREMENT,
+        entity_registry_enabled_default=False,
         value_fn=lambda state: state.co2.get(number),
         exists_fn=lambda device: device.has_co2_sensors,
     )
@@ -160,6 +161,7 @@ SENSORS: tuple[BrinkFlairSensorDescription, ...] = (
     _humidity(
         "rht_humidity",
         lambda state: state.rht_humidity,
+        entity_registry_enabled_default=False,
         exists_fn=lambda device: device.has_rht_sensor,
     ),
     _fan_speed("supply_fan_speed", lambda state: state.supply_fan_speed),
@@ -211,6 +213,7 @@ SENSORS: tuple[BrinkFlairSensorDescription, ...] = (
         translation_key="preheater_capacity",
         native_unit_of_measurement=PERCENTAGE,
         state_class=SensorStateClass.MEASUREMENT,
+        entity_registry_enabled_default=False,
         value_fn=lambda state: state.preheater_capacity,
         exists_fn=lambda device: device.has_preheater,
     ),
