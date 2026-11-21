@@ -190,7 +190,8 @@
         "state": {
           "initializing": "Initializing",
           "open": "Open",
-          "closed": "Closed"
+          "closed": "Closed",
+          "error": "Error"
         }
       },
       "active_function": {

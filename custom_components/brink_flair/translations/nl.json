@@ -190,7 +190,8 @@
         "state": {
           "initializing": "Initialiseren",
           "open": "Open",
-          "closed": "Dicht"
+          "closed": "Dicht",
+          "error": "Storing"
         }
       },
       "active_function": {

@@ -135,16 +135,43 @@ class BypassState(IntEnum):
     INITIALIZING = 0
     OPEN = 1
     CLOSED = 2
+    ERROR = 3
 
 
-# Brink's table lists both 1 and 3 as open and 2 and 4 as closed.
+# Brink's table lists both 1 and 3 as open and 2 and 4 as closed, and 255 as
+# an error.
 BYPASS_STATUS_MAP = {
     0: BypassState.INITIALIZING,
     1: BypassState.OPEN,
     2: BypassState.CLOSED,
     3: BypassState.OPEN,
     4: BypassState.CLOSED,
+    255: BypassState.ERROR,
 }
+
+
+class FanControlType(IntEnum):
+    """How the fans are regulated (register 4021)."""
+
+    INITIALIZING = 0
+    CONSTANT_FLOW = 1
+    CONSTANT_PWM = 2
+    OFF = 3
+    ERROR = 4
+    MASS_BALANCE = 5
+    STANDBY = 6
+
+
+class CO2SensorStatus(IntEnum):
+    """CO2 sensor state (registers 4200, 4202, 4204 and 4206)."""
+
+    ERROR = 0
+    NOT_INITIALIZED = 1
+    IDLE = 2
+    WARMING_UP = 3
+    RUNNING = 4
+    CALIBRATING = 5
+    SELF_TEST = 6
 
 
 class FrostStatus(IntEnum):

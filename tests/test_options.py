@@ -12,7 +12,7 @@ def mock_unit(mock_unit: MockModbusUnit) -> MockModbusUnit:
     mock_unit.holding.update({6130: 1, 6140: 1, 6150: 1})
     mock_unit.input[4060] = [2, 40]
     mock_unit.input[4080] = [2, 125, 9999, 61]
-    mock_unit.input[4200] = [3, 650, 3, 820, 0, 0, 0, 0]
+    mock_unit.input[4200] = [4, 650, 4, 820, 3, 400, 0, 0]
     return mock_unit
 
 

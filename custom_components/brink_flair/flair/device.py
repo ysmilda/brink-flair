@@ -59,6 +59,7 @@ class FlairState:
     """One poll of a Flair's readings and settings."""
 
     active_function: int
+    fan_control_type: int
     ventilation_mode: int
     switch_position: int
     control_mode: int
@@ -104,7 +105,7 @@ class FlairState:
     preheater_status: int | None = None
     preheater_capacity: int | None = None
     co2: dict[int, int] = field(default_factory=dict)
-    """CO2 level in ppm by sensor number (1 to 4), for sensors that report one."""
+    """CO2 level in ppm by sensor number (1 to 4), for running sensors."""
 
     @property
     def bypass_state(self) -> r.BypassState:
@@ -117,8 +118,10 @@ class FlairState:
         return (
             self.active_function
             in (r.ActiveFunction.NON_BLOCKING_ERROR, r.ActiveFunction.BLOCKING_ERROR)
+            or self.fan_control_type == r.FanControlType.ERROR
             or r.FanStatus.ERROR in (self.supply_fan_status, self.exhaust_fan_status)
             or self.frost_status == r.FrostStatus.ERROR
+            or self.bypass_state == r.BypassState.ERROR
         )
 
     @property
@@ -245,6 +248,7 @@ class FlairDevice:
 
         state = FlairState(
             active_function=status[0],
+            fan_control_type=status[1],
             ventilation_mode=status[2],
             switch_position=sensors[0],
             control_mode=control_mode,
@@ -295,11 +299,12 @@ class FlairDevice:
                 values["preheater_capacity"] = heater[1]
         if self.has_co2_sensors:
             co2 = await self._read_input(r.IR_CO2_SENSORS, 8)
-            # A status of 0 means the sensor has an error or is absent.
+            # Only a running sensor has a valid reading. An absent sensor
+            # reports an error status.
             values["co2"] = {
                 number + 1: co2[number * 2 + 1]
                 for number in range(4)
-                if co2[number * 2] != 0
+                if co2[number * 2] == r.CO2SensorStatus.RUNNING
             }
         return values
 

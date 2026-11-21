@@ -14,12 +14,14 @@ class FlairModel:
     """Highest airflow, in m3/h."""
 
 
-# Flair 300, 450 and 600 come from their installation manuals. The others are
-# the nominal capacity in the model name and still need checking.
+# Flair 300, 325, 400, 450 and 600 come from their installation manuals, and
+# 350 from its Modbus documentation. The others are the nominal capacity in
+# the model name and still need checking.
 FLAIR_200 = FlairModel(name="Flair 200", min_flow=50, max_flow=200)
 FLAIR_225 = FlairModel(name="Flair 225", min_flow=50, max_flow=225)
 FLAIR_300 = FlairModel(name="Flair 300", min_flow=50, max_flow=300)
 FLAIR_325 = FlairModel(name="Flair 325", min_flow=50, max_flow=325)
+FLAIR_350 = FlairModel(name="Flair 350", min_flow=50, max_flow=350)
 FLAIR_400 = FlairModel(name="Flair 400", min_flow=50, max_flow=400)
 FLAIR_450 = FlairModel(name="Flair 450", min_flow=75, max_flow=450)
 FLAIR_600 = FlairModel(name="Flair 600", min_flow=100, max_flow=600)

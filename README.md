@@ -8,7 +8,7 @@ into core once it has proven itself. Until then it is installed through HACS.
 
 ## Supported devices
 
-The Brink Flair range (200, 225, 300, 325, 400, 450 and 600) speaks Modbus RTU
+The Brink Flair range (200, 225, 300, 325, 350, 400, 450 and 600) speaks Modbus RTU
 over RS-485 on its X15 connector. Home Assistant reaches it through either:
 
 - **A Modbus TCP gateway**, such as a Waveshare RS485-to-Ethernet adapter or an
@@ -83,8 +83,8 @@ back straight away.
   issue asking you to report its number.
 - Brink's document gives humidity in tenths of a percent, but a Flair 300
   reports whole percent, which is what the integration assumes.
-- There is no fault code register. **Fault** reflects the operating mode and fan
-  states the unit reports.
+- There is no fault code register. **Fault** reflects the operating mode, fan,
+  frost and bypass states the unit reports.
 
 ## Troubleshooting
 
