@@ -127,6 +127,18 @@
       },
       "filter_interval": {
         "name": "Filterinterval"
+      },
+      "supply_imbalance": {
+        "name": "Onbalans toevoer"
+      },
+      "exhaust_imbalance": {
+        "name": "Onbalans afvoer"
+      },
+      "geo_min_temp": {
+        "name": "Minimumtemperatuur aardwarmtewisselaar"
+      },
+      "geo_max_temp": {
+        "name": "Maximumtemperatuur aardwarmtewisselaar"
       }
     },
     "select": {
@@ -247,6 +259,14 @@
       },
       "co2": {
         "name": "CO2-sensor {number}"
+      }
+    },
+    "switch": {
+      "imbalance_allowed": {
+        "name": "Onbalans toegestaan"
+      },
+      "geo_heat_exchanger": {
+        "name": "Aardwarmtewisselaar"
       }
     }
   },

@@ -8,15 +8,14 @@ import pytest
 
 @pytest.fixture
 def mock_unit(mock_unit: MockModbusUnit) -> MockModbusUnit:
-    """A Flair with a preheater, humidity sensor and two CO2 sensors."""
-    mock_unit.holding.update({6130: 1, 6140: 1, 6150: 1})
+    """A Flair with a preheater, humidity sensor and CO2 sensors."""
     mock_unit.input[4060] = [2, 40]
     mock_unit.input[4080] = [2, 125, 9999, 61]
     mock_unit.input[4200] = [4, 650, 4, 820, 3, 400, 0, 0]
     return mock_unit
 
 
-@pytest.mark.usefixtures("init_integration")
+@pytest.mark.usefixtures("entity_registry_enabled_by_default", "init_integration")
 async def test_optional_parts(hass: HomeAssistant) -> None:
     """Optional parts get their own entities."""
     assert hass.states.get("sensor.flair_humidity").state == "61"

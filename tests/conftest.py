@@ -3,7 +3,7 @@
 from collections.abc import AsyncIterator, Generator
 from contextlib import asynccontextmanager
 from typing import Any
-from unittest.mock import patch
+from unittest.mock import PropertyMock, patch
 
 from homeassistant.const import CONF_HOST, CONF_PORT, CONF_TYPE
 from homeassistant.core import HomeAssistant
@@ -66,14 +66,28 @@ def flair_300_registers() -> tuple[dict[int, Any], dict[int, Any]]:
     }
     holding = {
         6000: [50, 140, 200, 250],
+        6033: 1,
+        6035: [0, 0],
         6100: [0, 240, 150, 20],
         6120: 90,
         6130: 0,
         6140: 0,
         6150: 0,
+        6240: [0, 50, 250],
         8000: [1, 2, 0, 0],
     }
     return inputs, holding
+
+
+@pytest.fixture
+def entity_registry_enabled_by_default() -> Generator[None]:
+    """Create every entity enabled, including those disabled by default."""
+    with patch(
+        "homeassistant.helpers.entity.Entity.entity_registry_enabled_default",
+        new_callable=PropertyMock,
+        return_value=True,
+    ):
+        yield
 
 
 @pytest.fixture(autouse=True)

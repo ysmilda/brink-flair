@@ -62,6 +62,9 @@ IR_CO2_SENSORS = 4200  # 4 x (status, ppm)
 
 # --- Holding registers (functions 0x03 / 0x06) -------------------------------
 HR_FLOW_PRESETS = 6000  # 4 registers, m3/h for levels 0 to 3, step 5
+HR_IMBALANCE_ALLOWED = 6033  # 0 no, 1 yes
+HR_SUPPLY_IMBALANCE = 6035  # signed, %, -15 to 15
+HR_EXHAUST_IMBALANCE = 6036  # signed, %, -15 to 15
 HR_BYPASS_MODE = 6100
 HR_BYPASS_TEMP_INDOOR = 6101  # 0.1 degC, 150-350, step 5
 HR_BYPASS_TEMP_OUTDOOR = 6102  # 0.1 degC, 70-150, step 5
@@ -70,6 +73,9 @@ HR_FILTER_DAYS = 6120  # 1-365
 HR_EXTERNAL_HEATER_MODE = 6130
 HR_RHT_SENSOR_MODE = 6140
 HR_CO2_SENSOR_MODE = 6150
+HR_GEO_HEAT_EXCHANGER = 6240  # 0 off, 1 on
+HR_GEO_MIN_TEMP = 6241  # signed, 0.1 degC, 0-100
+HR_GEO_MAX_TEMP = 6242  # signed, 0.1 degC, 150-400
 
 # --- Remote control registers (functions 0x03 / 0x06) ------------------------
 RC_CONTROL = 8000

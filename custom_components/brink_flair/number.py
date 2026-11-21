@@ -10,7 +10,12 @@ from homeassistant.components.number import (
     NumberEntityDescription,
     NumberMode,
 )
-from homeassistant.const import EntityCategory, UnitOfTemperature, UnitOfTime
+from homeassistant.const import (
+    PERCENTAGE,
+    EntityCategory,
+    UnitOfTemperature,
+    UnitOfTime,
+)
 from homeassistant.core import HomeAssistant
 from homeassistant.exceptions import ServiceValidationError
 from homeassistant.helpers.entity_platform import AddConfigEntryEntitiesCallback
@@ -29,7 +34,7 @@ UNIT_AIRFLOW = "m³/h"
 class BrinkFlairNumberDescription(NumberEntityDescription):
     """Describes a Brink Flair setting."""
 
-    value_fn: Callable[[FlairState], float]
+    value_fn: Callable[[FlairState], float | None]
     set_fn: Callable[[FlairDevice, float], Coroutine[Any, Any, None]]
 
 
@@ -80,6 +85,55 @@ SETTINGS: tuple[BrinkFlairNumberDescription, ...] = (
         value_fn=lambda state: state.filter_interval_days,
         set_fn=lambda device, value: device.async_set_filter_interval(int(value)),
     ),
+    # Installer settings, so they start disabled.
+    BrinkFlairNumberDescription(
+        key="supply_imbalance",
+        translation_key="supply_imbalance",
+        native_unit_of_measurement=PERCENTAGE,
+        native_min_value=-15,
+        native_max_value=15,
+        native_step=1,
+        mode=NumberMode.BOX,
+        entity_registry_enabled_default=False,
+        value_fn=lambda state: state.supply_imbalance,
+        set_fn=lambda device, value: device.async_set_supply_imbalance(int(value)),
+    ),
+    BrinkFlairNumberDescription(
+        key="exhaust_imbalance",
+        translation_key="exhaust_imbalance",
+        native_unit_of_measurement=PERCENTAGE,
+        native_min_value=-15,
+        native_max_value=15,
+        native_step=1,
+        mode=NumberMode.BOX,
+        entity_registry_enabled_default=False,
+        value_fn=lambda state: state.exhaust_imbalance,
+        set_fn=lambda device, value: device.async_set_exhaust_imbalance(int(value)),
+    ),
+    BrinkFlairNumberDescription(
+        key="geo_min_temp",
+        translation_key="geo_min_temp",
+        device_class=NumberDeviceClass.TEMPERATURE,
+        native_unit_of_measurement=UnitOfTemperature.CELSIUS,
+        native_min_value=0,
+        native_max_value=10,
+        native_step=0.5,
+        entity_registry_enabled_default=False,
+        value_fn=lambda state: state.geo_min_temp,
+        set_fn=lambda device, value: device.async_set_geo_min_temp(value),
+    ),
+    BrinkFlairNumberDescription(
+        key="geo_max_temp",
+        translation_key="geo_max_temp",
+        device_class=NumberDeviceClass.TEMPERATURE,
+        native_unit_of_measurement=UnitOfTemperature.CELSIUS,
+        native_min_value=15,
+        native_max_value=40,
+        native_step=0.5,
+        entity_registry_enabled_default=False,
+        value_fn=lambda state: state.geo_max_temp,
+        set_fn=lambda device, value: device.async_set_geo_max_temp(value),
+    ),
 )
 
 
@@ -115,7 +169,15 @@ class BrinkFlairSettingNumber(BrinkFlairEntity, NumberEntity):
         self.entity_description = description
 
     @property
-    def native_value(self) -> float:
+    def available(self) -> bool:
+        """Unavailable when the unit does not serve the setting."""
+        return (
+            super().available
+            and self.entity_description.value_fn(self.coordinator.data) is not None
+        )
+
+    @property
+    def native_value(self) -> float | None:
         """The current value."""
         return self.entity_description.value_fn(self.coordinator.data)
 

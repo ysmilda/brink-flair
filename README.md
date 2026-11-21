@@ -54,7 +54,9 @@ To remove it, delete the entry from **Devices & services**.
 | Supply / exhaust airflow, temperature, humidity | sensor | |
 | Outdoor air temperature, bypass, operating mode, filter days remaining | sensor | |
 | Fan speeds, pressures, setpoints, frost status, operating hours | sensor | Diagnostic, some disabled by default |
-| Humidity, CO2 sensors, preheater | sensor / binary sensor | Only when that part is enabled on the unit |
+| Humidity, CO2 sensors, preheater | sensor / binary sensor | Hidden by default. Enable the ones for parts fitted to your unit |
+| Imbalance allowed, geo heat exchanger | switch | Installer settings, hidden by default |
+| Supply / exhaust imbalance, geo heat exchanger min / max temperature | number | Installer settings, hidden by default |
 
 ### How control works
 

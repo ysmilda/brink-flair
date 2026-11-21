@@ -101,11 +101,21 @@ class FlairState:
     bypass_hysteresis: float
 
     rht_humidity: float | None = None
-    """Only when a humidity sensor is enabled."""
+    """Meaningful only when a humidity sensor is fitted."""
     preheater_status: int | None = None
     preheater_capacity: int | None = None
     co2: dict[int, int] = field(default_factory=dict)
     """CO2 level in ppm by sensor number (1 to 4), for running sensors."""
+
+    # Installer settings that not every firmware serves; None when missing.
+    imbalance_allowed: bool | None = None
+    supply_imbalance: int | None = None
+    """Supply airflow offset in %."""
+    exhaust_imbalance: int | None = None
+    """Exhaust airflow offset in %."""
+    geo_heat_exchanger: bool | None = None
+    geo_min_temp: float | None = None
+    geo_max_temp: float | None = None
 
     @property
     def bypass_state(self) -> r.BypassState:
@@ -144,11 +154,13 @@ class FlairDevice:
         """Wrap a Modbus unit."""
         self._unit = unit
         self.identity: FlairIdentity | None = None
-        self.has_rht_sensor = False
-        self.has_co2_sensors = False
-        self.has_preheater = False
         self._requested_level: r.VentilationLevel | None = None
-        self._unsupported: set[int] = set()
+        self._unsupported: set[tuple[str, int]] = set()
+
+    @property
+    def unsupported_registers(self) -> list[str]:
+        """Optional registers this unit refused, such as "holding 6240"."""
+        return sorted(f"{kind} {address}" for kind, address in self._unsupported)
 
     @property
     def connected(self) -> bool:
@@ -167,13 +179,25 @@ class FlairDevice:
 
     async def _read_optional_input(self, address: int, count: int) -> list[int] | None:
         """Read input registers that not every unit or firmware serves."""
-        if address in self._unsupported:
+        return await self._read_optional("input", address, count)
+
+    async def _read_optional_holding(
+        self, address: int, count: int
+    ) -> list[int] | None:
+        """Read holding registers that not every unit or firmware serves."""
+        return await self._read_optional("holding", address, count)
+
+    async def _read_optional(
+        self, kind: str, address: int, count: int
+    ) -> list[int] | None:
+        if (kind, address) in self._unsupported:
             return None
+        read = self._read_input if kind == "input" else self._read_holding
         try:
-            return await self._read_input(address, count)
+            return await read(address, count)
         except IllegalDataAddressError:
-            _LOGGER.debug("Input register %s is not served by this unit", address)
-            self._unsupported.add(address)
+            _LOGGER.debug("%s register %s is not served by this unit", kind, address)
+            self._unsupported.add((kind, address))
             return None
 
     async def _read_holding(self, address: int, count: int) -> list[int]:
@@ -202,17 +226,7 @@ class FlairDevice:
             hardware_version=f"{hardware >> 8}.{hardware & 0xFF}",
             model=model_for_appliance_type(appliance_type),
         )
-        await self._detect_options()
         return self.identity
-
-    async def _detect_options(self) -> None:
-        """Find out which optional parts are enabled."""
-        (heater_mode,) = await self._read_holding(r.HR_EXTERNAL_HEATER_MODE, 1)
-        (rht_mode,) = await self._read_holding(r.HR_RHT_SENSOR_MODE, 1)
-        (co2_mode,) = await self._read_holding(r.HR_CO2_SENSOR_MODE, 1)
-        self.has_preheater = heater_mode == 1
-        self.has_rht_sensor = rht_mode == 1
-        self.has_co2_sensors = co2_mode == 1
 
     async def async_update(self) -> FlairState:
         """Read all readings and settings."""
@@ -229,6 +243,7 @@ class FlairDevice:
         bypass = await self._read_holding(r.HR_BYPASS_MODE, 4)
         (filter_days,) = await self._read_holding(r.HR_FILTER_DAYS, 1)
         control = await self._read_holding(r.RC_CONTROL, 4)
+        installer = await self._read_installer_settings()
 
         control_mode = control[0]
         if (
@@ -281,24 +296,33 @@ class FlairDevice:
             bypass_temp_indoor=bypass[1] / 10,
             bypass_temp_outdoor=bypass[2] / 10,
             bypass_hysteresis=bypass[3] / 10,
-            rht_humidity=sensors[3] if self.has_rht_sensor else None,
+            rht_humidity=sensors[3],
             **await self._read_options(),
+            **installer,
         )
         return state
 
-    async def _read_options(self) -> dict:
-        """Read the registers of optional parts that are present."""
+    async def _read_installer_settings(self) -> dict:
+        """Read the imbalance and geo heat exchanger settings, where served."""
         values: dict = {}
-        if self.has_preheater:
-            try:
-                heater = await self._read_input(r.IR_PREHEATER_STATUS, 2)
-            except IllegalDataAddressError:
-                self.has_preheater = False
-            else:
-                values["preheater_status"] = heater[0]
-                values["preheater_capacity"] = heater[1]
-        if self.has_co2_sensors:
-            co2 = await self._read_input(r.IR_CO2_SENSORS, 8)
+        if allowed := await self._read_optional_holding(r.HR_IMBALANCE_ALLOWED, 1):
+            values["imbalance_allowed"] = allowed[0] == 1
+        if offsets := await self._read_optional_holding(r.HR_SUPPLY_IMBALANCE, 2):
+            values["supply_imbalance"] = _signed(offsets[0])
+            values["exhaust_imbalance"] = _signed(offsets[1])
+        if geo := await self._read_optional_holding(r.HR_GEO_HEAT_EXCHANGER, 3):
+            values["geo_heat_exchanger"] = geo[0] == 1
+            values["geo_min_temp"] = _signed(geo[1]) / 10
+            values["geo_max_temp"] = _signed(geo[2]) / 10
+        return values
+
+    async def _read_options(self) -> dict:
+        """Read the registers of optional parts, where served."""
+        values: dict = {}
+        if heater := await self._read_optional_input(r.IR_PREHEATER_STATUS, 2):
+            values["preheater_status"] = heater[0]
+            values["preheater_capacity"] = heater[1]
+        if co2 := await self._read_optional_input(r.IR_CO2_SENSORS, 8):
             # Only a running sensor has a valid reading. An absent sensor
             # reports an error status.
             values["co2"] = {
@@ -349,6 +373,30 @@ class FlairDevice:
     async def async_set_filter_interval(self, days: int) -> None:
         """Set the number of days between filter warnings."""
         await self._write(r.HR_FILTER_DAYS, days)
+
+    async def async_set_imbalance_allowed(self, allowed: bool) -> None:
+        """Allow or forbid a difference between supply and exhaust airflow."""
+        await self._write(r.HR_IMBALANCE_ALLOWED, 1 if allowed else 0)
+
+    async def async_set_supply_imbalance(self, percent: int) -> None:
+        """Set the supply airflow offset in %."""
+        await self._write(r.HR_SUPPLY_IMBALANCE, percent & 0xFFFF)
+
+    async def async_set_exhaust_imbalance(self, percent: int) -> None:
+        """Set the exhaust airflow offset in %."""
+        await self._write(r.HR_EXHAUST_IMBALANCE, percent & 0xFFFF)
+
+    async def async_set_geo_heat_exchanger(self, enabled: bool) -> None:
+        """Turn the geo heat exchanger control on or off."""
+        await self._write(r.HR_GEO_HEAT_EXCHANGER, 1 if enabled else 0)
+
+    async def async_set_geo_min_temp(self, value: float) -> None:
+        """Set the outdoor temperature below which the geo exchanger is used."""
+        await self._write(r.HR_GEO_MIN_TEMP, round(value * 10) & 0xFFFF)
+
+    async def async_set_geo_max_temp(self, value: float) -> None:
+        """Set the outdoor temperature above which the geo exchanger is used."""
+        await self._write(r.HR_GEO_MAX_TEMP, round(value * 10) & 0xFFFF)
 
     async def async_reset_filter(self) -> None:
         """Reset the filter counter after a filter change."""

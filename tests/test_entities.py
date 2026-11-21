@@ -31,6 +31,7 @@ from homeassistant.const import (
 )
 from homeassistant.core import HomeAssistant
 from homeassistant.exceptions import HomeAssistantError, ServiceValidationError
+from homeassistant.helpers import entity_registry as er
 from modbus_connection import IllegalDataAddressError, ModbusTimeoutError
 from modbus_connection.mock import MockModbusUnit
 import pytest
@@ -69,11 +70,20 @@ async def test_sensors(hass: HomeAssistant) -> None:
     assert hass.states.get("binary_sensor.flair_frost_protection").state == STATE_OFF
 
 
-async def test_optional_parts_absent(hass: HomeAssistant) -> None:
-    """Entities for parts the unit lacks are not created."""
-    assert hass.states.get("sensor.flair_humidity") is None
-    assert hass.states.get("binary_sensor.flair_preheater") is None
-    assert hass.states.get("sensor.flair_co2_sensor_1") is None
+async def test_optional_parts_absent(
+    hass: HomeAssistant, entity_registry: er.EntityRegistry
+) -> None:
+    """Entities for parts the unit lacks exist, but start disabled."""
+    for entity_id in (
+        "sensor.flair_humidity",
+        "binary_sensor.flair_preheater",
+        "sensor.flair_preheater_capacity",
+        "sensor.flair_co2_sensor_1",
+    ):
+        entry = entity_registry.async_get(entity_id)
+        assert entry is not None, entity_id
+        assert entry.disabled_by is er.RegistryEntryDisabler.INTEGRATION
+        assert hass.states.get(entity_id) is None
 
 
 async def test_fan_state(hass: HomeAssistant) -> None:

@@ -127,6 +127,18 @@
       },
       "filter_interval": {
         "name": "Filter interval"
+      },
+      "supply_imbalance": {
+        "name": "Supply imbalance"
+      },
+      "exhaust_imbalance": {
+        "name": "Exhaust imbalance"
+      },
+      "geo_min_temp": {
+        "name": "Geo heat exchanger minimum temperature"
+      },
+      "geo_max_temp": {
+        "name": "Geo heat exchanger maximum temperature"
       }
     },
     "select": {
@@ -247,6 +259,14 @@
       },
       "co2": {
         "name": "CO2 sensor {number}"
+      }
+    },
+    "switch": {
+      "imbalance_allowed": {
+        "name": "Imbalance allowed"
+      },
+      "geo_heat_exchanger": {
+        "name": "Geo heat exchanger"
       }
     }
   },

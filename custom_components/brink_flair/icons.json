@@ -54,6 +54,12 @@
       },
       "filter_interval": {
         "default": "mdi:calendar-clock"
+      },
+      "supply_imbalance": {
+        "default": "mdi:scale-unbalanced"
+      },
+      "exhaust_imbalance": {
+        "default": "mdi:scale-unbalanced"
       }
     },
     "select": {
@@ -95,6 +101,14 @@
       },
       "preheater_capacity": {
         "default": "mdi:radiator"
+      }
+    },
+    "switch": {
+      "imbalance_allowed": {
+        "default": "mdi:scale-unbalanced"
+      },
+      "geo_heat_exchanger": {
+        "default": "mdi:earth"
       }
     }
   }

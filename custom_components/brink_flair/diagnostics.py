@@ -25,10 +25,6 @@ async def async_get_config_entry_diagnostics(
         if identity
         else None,
         "model": asdict(device.model),
-        "options": {
-            "preheater": device.has_preheater,
-            "rht_sensor": device.has_rht_sensor,
-            "co2_sensors": device.has_co2_sensors,
-        },
+        "unsupported_registers": device.unsupported_registers,
         "state": asdict(coordinator.data) if coordinator.data else None,
     }
