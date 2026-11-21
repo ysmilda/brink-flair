@@ -5,10 +5,6 @@ from typing import Any
 from homeassistant.components.fan import FanEntity, FanEntityFeature
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_platform import AddConfigEntryEntitiesCallback
-from homeassistant.util.percentage import (
-    ordered_list_item_to_percentage,
-    percentage_to_ordered_list_item,
-)
 
 from .coordinator import BrinkFlairConfigEntry, BrinkFlairCoordinator
 from .entity import BrinkFlairEntity
@@ -42,10 +38,8 @@ class BrinkFlairFan(BrinkFlairEntity, FanEntity):
     _attr_name = None
     _attr_translation_key = "ventilation"
     _attr_preset_modes = [*PRESET_FOR_LEVEL.values(), PRESET_AUTO]
-    _attr_speed_count = len(LEVELS)
     _attr_supported_features = (
-        FanEntityFeature.SET_SPEED
-        | FanEntityFeature.PRESET_MODE
+        FanEntityFeature.PRESET_MODE
         | FanEntityFeature.TURN_ON
         | FanEntityFeature.TURN_OFF
     )
@@ -65,15 +59,6 @@ class BrinkFlairFan(BrinkFlairEntity, FanEntity):
         return not data.standby and data.active_function != ActiveFunction.STANDBY
 
     @property
-    def percentage(self) -> int | None:
-        """The current level as a percentage."""
-        if not self.is_on:
-            return 0
-        if (level := self._level()) is None:
-            return None
-        return ordered_list_item_to_percentage(LEVELS, level)
-
-    @property
     def preset_mode(self) -> str | None:
         """The current level, or auto when the unit controls itself."""
         if self.coordinator.data.control_mode == ControlMode.OFF:
@@ -81,14 +66,6 @@ class BrinkFlairFan(BrinkFlairEntity, FanEntity):
         if (level := self._level()) is None:
             return None
         return PRESET_FOR_LEVEL[level]
-
-    async def async_set_percentage(self, percentage: int) -> None:
-        """Set the level closest to a percentage; 0 puts the unit in standby."""
-        if percentage == 0:
-            await self.async_turn_off()
-            return
-        level = percentage_to_ordered_list_item(LEVELS, percentage)
-        await self._async_set_level(level)
 
     async def async_set_preset_mode(self, preset_mode: str) -> None:
         """Set a level, or hand control back to the unit."""
@@ -113,8 +90,6 @@ class BrinkFlairFan(BrinkFlairEntity, FanEntity):
         if preset_mode is not None:
             await self._async_write(self.coordinator.device.async_set_standby(False))
             await self.async_set_preset_mode(preset_mode)
-        elif percentage is not None:
-            await self.async_set_percentage(percentage)
         else:
             await self._async_write(self.coordinator.device.async_set_standby(False))
 

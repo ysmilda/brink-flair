@@ -8,7 +8,6 @@ from homeassistant.components.fan import (
     ATTR_PERCENTAGE,
     ATTR_PRESET_MODE,
     DOMAIN as FAN_DOMAIN,
-    SERVICE_SET_PERCENTAGE,
     SERVICE_SET_PRESET_MODE,
 )
 from homeassistant.components.number import (
@@ -91,7 +90,7 @@ async def test_fan_state(hass: HomeAssistant) -> None:
     state = hass.states.get(FAN)
     assert state.state == STATE_ON
     assert state.attributes[ATTR_PRESET_MODE] == "normal"
-    assert state.attributes[ATTR_PERCENTAGE] == 75
+    assert ATTR_PERCENTAGE not in state.attributes
 
 
 async def test_fan_preset(hass: HomeAssistant, patch_modbus: MockModbusUnit) -> None:
@@ -119,16 +118,17 @@ async def test_fan_auto(hass: HomeAssistant, patch_modbus: MockModbusUnit) -> No
     assert hass.states.get(FAN).attributes[ATTR_PRESET_MODE] == "auto"
 
 
-async def test_fan_percentage(
+async def test_fan_turn_on_with_preset(
     hass: HomeAssistant, patch_modbus: MockModbusUnit
 ) -> None:
-    """A percentage maps to the nearest level."""
+    """Turning on with a preset wakes the unit at that level."""
     await _call(
         hass,
         FAN_DOMAIN,
-        SERVICE_SET_PERCENTAGE,
-        {ATTR_ENTITY_ID: FAN, ATTR_PERCENTAGE: 30},
+        SERVICE_TURN_ON,
+        {ATTR_ENTITY_ID: FAN, ATTR_PRESET_MODE: "low"},
     )
+    assert patch_modbus.holding[8003] == 2
     assert patch_modbus.holding[8001] == 1
 
 
