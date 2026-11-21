@@ -84,8 +84,11 @@ async def main() -> None:
         async def check(name, read, write, new) -> None:
             results.append(await _check(device, name, read, write, new))
 
-        level = VentilationLevel(state.switch_position)
-        other = VentilationLevel.LOW if level != VentilationLevel.LOW else level.NORMAL
+        other = (
+            VentilationLevel.LOW
+            if state.ventilation_mode != VentilationLevel.LOW
+            else VentilationLevel.NORMAL
+        )
         await check(
             "ventilation level",
             lambda s: (
