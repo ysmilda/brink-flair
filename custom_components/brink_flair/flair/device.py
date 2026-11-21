@@ -206,7 +206,7 @@ class FlairDevice:
         )
 
     async def _write(self, address: int, value: int) -> None:
-        await self._unit.write_register(address + r.ADDRESS_OFFSET, value)
+        await self._unit.write_register(address + r.ADDRESS_OFFSET, int(value))
 
     async def async_read_identity(self) -> FlairIdentity:
         """Read the serial number, versions and appliance type."""
@@ -333,7 +333,11 @@ class FlairDevice:
         return values
 
     async def _apply_level(self, level: r.VentilationLevel) -> None:
-        await self._write(r.RC_CONTROL, r.ControlMode.SWITCH)
+        # A Flair 300 rejects a write of 8000 that does not change it
+        # (Illegal Data Value), so only switch it when it is not set yet.
+        (control_mode,) = await self._read_holding(r.RC_CONTROL, 1)
+        if control_mode != r.ControlMode.SWITCH:
+            await self._write(r.RC_CONTROL, r.ControlMode.SWITCH)
         await self._write(r.RC_SWITCH_POSITION, level)
 
     async def async_set_level(self, level: r.VentilationLevel) -> None:

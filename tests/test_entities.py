@@ -31,7 +31,11 @@ from homeassistant.const import (
 from homeassistant.core import HomeAssistant
 from homeassistant.exceptions import HomeAssistantError, ServiceValidationError
 from homeassistant.helpers import entity_registry as er
-from modbus_connection import IllegalDataAddressError, ModbusTimeoutError
+from modbus_connection import (
+    IllegalDataAddressError,
+    IllegalDataValueError,
+    ModbusTimeoutError,
+)
 from modbus_connection.mock import MockModbusUnit
 import pytest
 from pytest_homeassistant_custom_component.common import (
@@ -101,8 +105,21 @@ async def test_fan_preset(hass: HomeAssistant, patch_modbus: MockModbusUnit) -> 
         SERVICE_SET_PRESET_MODE,
         {ATTR_ENTITY_ID: FAN, ATTR_PRESET_MODE: "high"},
     )
-    assert patch_modbus.holding[8000] == 1
     assert patch_modbus.holding[8001] == 3
+
+
+async def test_fan_preset_when_already_in_control(
+    hass: HomeAssistant, patch_modbus: MockModbusUnit
+) -> None:
+    """A Flair 300 rejects rewriting 8000, so it is left alone when already set."""
+    patch_modbus.fail_write(8000, IllegalDataValueError())
+    await _call(
+        hass,
+        FAN_DOMAIN,
+        SERVICE_SET_PRESET_MODE,
+        {ATTR_ENTITY_ID: FAN, ATTR_PRESET_MODE: "low"},
+    )
+    assert patch_modbus.holding[8001] == 1
 
 
 async def test_fan_auto(hass: HomeAssistant, patch_modbus: MockModbusUnit) -> None:
