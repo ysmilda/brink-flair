@@ -7,6 +7,7 @@ from unittest.mock import patch
 
 from homeassistant.const import CONF_HOST, CONF_PORT, CONF_TYPE
 from homeassistant.core import HomeAssistant
+from modbus_connection import IllegalDataAddressError
 from modbus_connection.mock import MockModbusConnection, MockModbusUnit
 import pytest
 from pytest_homeassistant_custom_component.common import MockConfigEntry
@@ -30,6 +31,17 @@ TCP_DATA = {
 
 def _bcd(digits: str) -> int:
     return int(digits, 16)
+
+
+# Input registers a real Flair 300 refuses with IllegalDataAddress, so a read
+# that spans one of them fails as it would on the unit.
+UNSERVED_INPUT_REGISTERS = (*range(4006, 4010), *range(4102, 4110))
+
+
+def refuse_unserved_registers(unit: MockModbusUnit) -> None:
+    """Make the mock refuse the registers a real Flair 300 refuses."""
+    for address in UNSERVED_INPUT_REGISTERS:
+        unit.fail_read(address, IllegalDataAddressError(), register_type="input")
 
 
 def flair_300_registers() -> tuple[dict[int, Any], dict[int, Any]]:
@@ -74,6 +86,7 @@ def mock_unit() -> MockModbusUnit:
     """A Modbus unit that answers like a Flair 300."""
     unit = MockModbusConnection().for_unit(20)
     unit.input, unit.holding = flair_300_registers()
+    refuse_unserved_registers(unit)
     return unit
 
 

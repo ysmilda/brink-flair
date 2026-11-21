@@ -186,11 +186,11 @@ class FlairDevice:
 
     async def async_read_identity(self) -> FlairIdentity:
         """Read the serial number, versions and appliance type."""
-        regs = await self._read_input(r.IR_SOFTWARE_VERSION, 13)
-        sw_type_major, sw_minor_fix, sw_build = regs[0:3]
-        hardware = regs[3]
-        appliance_type = regs[4]
-        serial = "".join(_bcd(value) for value in regs[10:13])
+        # 4006 to 4009 are not served, so these are two reads.
+        versions = await self._read_input(r.IR_SOFTWARE_VERSION, 5)
+        serial_regs = await self._read_input(r.IR_SERIAL_NUMBER, 3)
+        sw_type_major, sw_minor_fix, sw_build, hardware, appliance_type = versions
+        serial = "".join(_bcd(value) for value in serial_regs)
         software = (
             f"{sw_type_major & 0xFF}.{sw_minor_fix >> 8}.{sw_minor_fix & 0xFF}"
             f".{sw_build}"
