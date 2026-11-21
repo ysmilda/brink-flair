@@ -14,7 +14,7 @@ from homeassistant.helpers.entity_platform import AddConfigEntryEntitiesCallback
 
 from .coordinator import BrinkFlairConfigEntry, BrinkFlairCoordinator
 from .entity import BrinkFlairEntity
-from .flair import FlairDevice, FlairState
+from .flair import FlairState
 
 PARALLEL_UPDATES = 0
 
@@ -24,7 +24,6 @@ class BrinkFlairBinarySensorDescription(BinarySensorEntityDescription):
     """Describes a Brink Flair binary sensor."""
 
     value_fn: Callable[[FlairState], bool | None]
-    exists_fn: Callable[[FlairDevice], bool] = lambda _: True
 
 
 BINARY_SENSORS: tuple[BrinkFlairBinarySensorDescription, ...] = (
@@ -55,7 +54,6 @@ BINARY_SENSORS: tuple[BrinkFlairBinarySensorDescription, ...] = (
         value_fn=lambda state: (
             state.preheater_status == 2 if state.preheater_status is not None else None
         ),
-        exists_fn=lambda device: device.has_preheater,
     ),
 )
 
@@ -70,7 +68,6 @@ async def async_setup_entry(
     async_add_entities(
         BrinkFlairBinarySensor(coordinator, description)
         for description in BINARY_SENSORS
-        if description.exists_fn(coordinator.device)
     )
 
 

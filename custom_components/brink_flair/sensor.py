@@ -24,7 +24,7 @@ from homeassistant.helpers.entity_platform import AddConfigEntryEntitiesCallback
 
 from .coordinator import BrinkFlairConfigEntry, BrinkFlairCoordinator
 from .entity import BrinkFlairEntity
-from .flair import ActiveFunction, BypassState, FlairDevice, FlairState, FrostStatus
+from .flair import ActiveFunction, BypassState, FlairState, FrostStatus
 
 PARALLEL_UPDATES = 0
 
@@ -44,7 +44,6 @@ class BrinkFlairSensorDescription(SensorEntityDescription):
     """Describes a Brink Flair sensor."""
 
     value_fn: Callable[[FlairState], float | int | str | None]
-    exists_fn: Callable[[FlairDevice], bool] = lambda _: True
 
 
 def _airflow(
@@ -129,7 +128,6 @@ def _co2(number: int) -> BrinkFlairSensorDescription:
         state_class=SensorStateClass.MEASUREMENT,
         entity_registry_enabled_default=False,
         value_fn=lambda state: state.co2.get(number),
-        exists_fn=lambda device: device.has_co2_sensors,
     )
 
 
@@ -162,7 +160,6 @@ SENSORS: tuple[BrinkFlairSensorDescription, ...] = (
         "rht_humidity",
         lambda state: state.rht_humidity,
         entity_registry_enabled_default=False,
-        exists_fn=lambda device: device.has_rht_sensor,
     ),
     _fan_speed("supply_fan_speed", lambda state: state.supply_fan_speed),
     _fan_speed("exhaust_fan_speed", lambda state: state.exhaust_fan_speed),
@@ -215,7 +212,6 @@ SENSORS: tuple[BrinkFlairSensorDescription, ...] = (
         state_class=SensorStateClass.MEASUREMENT,
         entity_registry_enabled_default=False,
         value_fn=lambda state: state.preheater_capacity,
-        exists_fn=lambda device: device.has_preheater,
     ),
     *(_co2(number) for number in range(1, 5)),
 )
@@ -229,9 +225,7 @@ async def async_setup_entry(
     """Set up the sensors."""
     coordinator = entry.runtime_data
     async_add_entities(
-        BrinkFlairSensor(coordinator, description)
-        for description in SENSORS
-        if description.exists_fn(coordinator.device)
+        BrinkFlairSensor(coordinator, description) for description in SENSORS
     )
 
 
