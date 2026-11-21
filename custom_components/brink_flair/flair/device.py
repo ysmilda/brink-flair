@@ -23,6 +23,15 @@ def _bcd(value: int) -> str:
     return "".join(str((value >> shift) & 0xF) for shift in (12, 8, 4, 0))
 
 
+# Brink reports a temperature sensor that is not fitted as 999.9 degC.
+_NOT_FITTED = 9999
+
+
+def _temperature(value: int) -> float | None:
+    """Decode a temperature in tenths of a degree, or None if not fitted."""
+    return None if value == _NOT_FITTED else _signed(value) / 10
+
+
 def _u32(high: int, low: int) -> int:
     """Combine two registers into a 32-bit number, high word first."""
     return (high << 16) | low
@@ -59,7 +68,7 @@ class FlairState:
     supply_flow_setpoint: int
     supply_flow: int
     supply_fan_speed: int
-    supply_temperature: float
+    supply_temperature: float | None
     supply_humidity: float
     supply_pressure: float
 
@@ -67,20 +76,22 @@ class FlairState:
     exhaust_flow_setpoint: int
     exhaust_flow: int
     exhaust_fan_speed: int
-    exhaust_temperature: float
+    exhaust_temperature: float | None
     exhaust_humidity: float
     exhaust_pressure: float
 
     bypass_status: int
     frost_status: int
     frost_heater_power: int
-    ntc1_temperature: float
-    ntc2_temperature: float
+    ntc1_temperature: float | None
+    ntc2_temperature: float | None
 
     filter_dirty: bool
-    filter_hours: int
+    filter_hours: int | None
+    """None when the unit does not report it."""
     filter_interval_days: int
-    operating_hours: int
+    operating_hours: int | None
+    """None when the unit does not report it."""
 
     flow_presets: tuple[int, int, int, int]
     bypass_mode: int
@@ -116,8 +127,10 @@ class FlairState:
         return self.frost_status in r.FROST_ACTIVE_STATES
 
     @property
-    def filter_days_remaining(self) -> int:
+    def filter_days_remaining(self) -> int | None:
         """Days until the filter warning, never below zero."""
+        if self.filter_hours is None:
+            return None
         return max(0, self.filter_interval_days - self.filter_hours // 24)
 
 
@@ -132,6 +145,7 @@ class FlairDevice:
         self.has_co2_sensors = False
         self.has_preheater = False
         self._requested_level: r.VentilationLevel | None = None
+        self._unsupported: set[int] = set()
 
     @property
     def connected(self) -> bool:
@@ -147,6 +161,17 @@ class FlairDevice:
 
     async def _read_input(self, address: int, count: int) -> list[int]:
         return await self._unit.read_input_registers(address + r.ADDRESS_OFFSET, count)
+
+    async def _read_optional_input(self, address: int, count: int) -> list[int] | None:
+        """Read input registers that not every unit or firmware serves."""
+        if address in self._unsupported:
+            return None
+        try:
+            return await self._read_input(address, count)
+        except IllegalDataAddressError:
+            _LOGGER.debug("Input register %s is not served by this unit", address)
+            self._unsupported.add(address)
+            return None
 
     async def _read_holding(self, address: int, count: int) -> list[int]:
         return await self._unit.read_holding_registers(
@@ -194,7 +219,9 @@ class FlairDevice:
         (bypass_status,) = await self._read_input(r.IR_BYPASS_STATUS, 1)
         frost = await self._read_input(r.IR_FROST_STATUS, 2)
         sensors = await self._read_input(r.IR_SWITCH_POSITION, 4)
-        counters = await self._read_input(r.IR_FILTER_STATUS, 16)
+        (filter_status,) = await self._read_input(r.IR_FILTER_STATUS, 1)
+        operating = await self._read_optional_input(r.IR_OPERATING_HOURS, 2)
+        filter_hours = await self._read_optional_input(r.IR_FILTER_HOURS, 1)
         presets = await self._read_holding(r.HR_FLOW_PRESETS, 4)
         bypass = await self._read_holding(r.HR_BYPASS_MODE, 4)
         (filter_days,) = await self._read_holding(r.HR_FILTER_DAYS, 1)
@@ -228,29 +255,29 @@ class FlairDevice:
             supply_flow_setpoint=supply[1],
             supply_flow=supply[2],
             supply_fan_speed=supply[4],
-            supply_temperature=_signed(supply[6]) / 10,
-            supply_humidity=supply[7] / 10,
+            supply_temperature=_temperature(supply[6]),
+            supply_humidity=supply[7],
             exhaust_fan_status=exhaust[0],
             exhaust_flow_setpoint=exhaust[1],
             exhaust_flow=exhaust[2],
             exhaust_fan_speed=exhaust[4],
-            exhaust_temperature=_signed(exhaust[6]) / 10,
-            exhaust_humidity=exhaust[7] / 10,
+            exhaust_temperature=_temperature(exhaust[6]),
+            exhaust_humidity=exhaust[7],
             bypass_status=bypass_status,
             frost_status=frost[0],
             frost_heater_power=frost[1],
-            ntc1_temperature=_signed(sensors[1]) / 10,
-            ntc2_temperature=_signed(sensors[2]) / 10,
-            filter_dirty=counters[0] == 1,
-            operating_hours=_u32(counters[13], counters[14]),
-            filter_hours=counters[15],
+            ntc1_temperature=_temperature(sensors[1]),
+            ntc2_temperature=_temperature(sensors[2]),
+            filter_dirty=filter_status == 1,
+            operating_hours=_u32(*operating) if operating else None,
+            filter_hours=filter_hours[0] if filter_hours else None,
             filter_interval_days=filter_days,
             flow_presets=(presets[0], presets[1], presets[2], presets[3]),
             bypass_mode=bypass[0],
             bypass_temp_indoor=bypass[1] / 10,
             bypass_temp_outdoor=bypass[2] / 10,
             bypass_hysteresis=bypass[3] / 10,
-            rht_humidity=sensors[3] / 10 if self.has_rht_sensor else None,
+            rht_humidity=sensors[3] if self.has_rht_sensor else None,
             **await self._read_options(),
         )
         return state

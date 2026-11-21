@@ -33,21 +33,28 @@ def _bcd(digits: str) -> int:
 
 
 def flair_300_registers() -> tuple[dict[int, Any], dict[int, Any]]:
-    """Input and holding registers of a Flair 300 at level normal."""
+    """Input and holding registers of a Flair 300.
+
+    Values come from a real Flair 300 (appliance type 24), with the serial
+    number replaced, the level set to normal and the bypass open.
+    """
     inputs = {
-        4000: [0x5301, 0x0203, 1234, 0x0102, 7, 3],
+        4000: [0x5303, 0x010A, 3, 0x0201, 24, 63],
         4010: [_bcd(SERIAL[0:4]), _bcd(SERIAL[4:8]), _bcd(SERIAL[8:12])],
-        4020: [12, 1, 2, 150, 0xFF9C],  # auto modbus, normal, +15.0 Pa, -10.0 Pa
-        4030: [4, 150, 148, 180, 1450, 0, 215, 452],
-        4040: [4, 150, 151, 182, 1480, 0, 208, 551],
-        4050: [1, 0],
-        4070: [2, 0],
-        4080: [2, 0xFFE2, 185, 0],  # -3.0 degC on NTC1
-        4100: [0, 0, *([0] * 11), 0, 1234, 48 * 24],
+        4020: [12, 0, 2, 37, 42],
+        4030: [4, 140, 148, 0, 1320, 0, 191, 43],
+        4040: [4, 137, 151, 0, 1380, 0, 133, 94],
+        4050: [1, 920],
+        4060: [0, 0],
+        4070: [2, 0, 100],
+        4080: [2, 125, 9999, 0],
+        4100: 0,
+        4113: [0, 1234, 48 * 24],
+        4200: [0] * 8,
     }
     holding = {
-        6000: [50, 100, 150, 250],
-        6100: [0, 240, 100, 20],
+        6000: [50, 140, 200, 250],
+        6100: [0, 240, 150, 20],
         6120: 90,
         6130: 0,
         6140: 0,

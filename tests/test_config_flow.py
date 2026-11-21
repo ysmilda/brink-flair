@@ -51,7 +51,7 @@ async def test_tcp(hass: HomeAssistant) -> None:
         result["flow_id"], TCP_INPUT
     )
     assert result["type"] is FlowResultType.CREATE_ENTRY
-    assert result["title"] == "Flair"
+    assert result["title"] == "Flair 300"
     assert result["data"] == {CONF_TYPE: TYPE_TCP, **TCP_INPUT}
     assert result["result"].unique_id == SERIAL
 

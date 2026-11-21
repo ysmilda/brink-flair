@@ -31,7 +31,7 @@ from homeassistant.const import (
 )
 from homeassistant.core import HomeAssistant
 from homeassistant.exceptions import HomeAssistantError, ServiceValidationError
-from modbus_connection import ModbusTimeoutError
+from modbus_connection import IllegalDataAddressError, ModbusTimeoutError
 from modbus_connection.mock import MockModbusUnit
 import pytest
 from pytest_homeassistant_custom_component.common import (
@@ -56,9 +56,10 @@ async def test_sensors(hass: HomeAssistant) -> None:
     """Readings are decoded with the right scale and sign."""
     assert hass.states.get("sensor.flair_supply_airflow").state == "148"
     assert hass.states.get("sensor.flair_exhaust_airflow").state == "151"
-    assert hass.states.get("sensor.flair_supply_air_temperature").state == "21.5"
-    assert hass.states.get("sensor.flair_outdoor_air_temperature").state == "-3.0"
-    assert hass.states.get("sensor.flair_supply_air_humidity").state == "45.2"
+    assert hass.states.get("sensor.flair_supply_air_temperature").state == "19.1"
+    assert hass.states.get("sensor.flair_outdoor_air_temperature").state == "12.5"
+    assert hass.states.get("sensor.flair_supply_air_humidity").state == "43"
+    assert hass.states.get("sensor.flair_exhaust_air_humidity").state == "94"
     assert hass.states.get("sensor.flair_bypass").state == "open"
     assert hass.states.get("sensor.flair_operating_mode").state == "auto_modbus"
     # 90 day interval, 48 days since the last reset.
@@ -186,14 +187,15 @@ async def test_bypass_temperature(
 async def test_flow_preset(hass: HomeAssistant, patch_modbus: MockModbusUnit) -> None:
     """A level's airflow can change within its neighbours."""
     entity_id = "number.flair_airflow_normal"
-    assert hass.states.get(entity_id).state == "150"
+    assert hass.states.get(entity_id).state == "200"
+    assert hass.states.get(entity_id).attributes["max"] == 300
     await _call(
         hass,
         NUMBER_DOMAIN,
         SERVICE_SET_VALUE,
-        {ATTR_ENTITY_ID: entity_id, ATTR_VALUE: 175},
+        {ATTR_ENTITY_ID: entity_id, ATTR_VALUE: 225},
     )
-    assert patch_modbus.holding[6002] == 175
+    assert patch_modbus.holding[6002] == 225
 
 
 async def test_flow_preset_out_of_order(
@@ -205,7 +207,7 @@ async def test_flow_preset_out_of_order(
             hass,
             NUMBER_DOMAIN,
             SERVICE_SET_VALUE,
-            {ATTR_ENTITY_ID: "number.flair_airflow_low", ATTR_VALUE: 200},
+            {ATTR_ENTITY_ID: "number.flair_airflow_low", ATTR_VALUE: 205},
         )
     assert 6001 not in patch_modbus.holding
 
@@ -260,3 +262,18 @@ async def test_diagnostics_redacts(
     assert result["entry_data"]["host"] == "**REDACTED**"
     assert result["identity"]["serial_number"] == "**REDACTED**"
     assert result["state"]["supply_flow"] == 148
+
+
+async def test_counters_not_served(
+    hass: HomeAssistant,
+    patch_modbus: MockModbusUnit,
+    freezer: FrozenDateTimeFactory,
+) -> None:
+    """Counters a unit refuses leave their sensors unknown, not unavailable."""
+    patch_modbus.fail_read(4113, IllegalDataAddressError(), register_type="input")
+    patch_modbus.fail_read(4115, IllegalDataAddressError(), register_type="input")
+    freezer.tick(timedelta(seconds=31))
+    async_fire_time_changed(hass)
+    await hass.async_block_till_done()
+    assert hass.states.get(FAN).state == STATE_ON
+    assert hass.states.get("sensor.flair_filter_days_remaining").state == "unknown"

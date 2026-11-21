@@ -15,8 +15,8 @@ over RS-485 on its X15 connector. Home Assistant reaches it through either:
   ESP running the config in [`esphome/`](esphome/).
 - **A USB RS-485 adapter** plugged into the Home Assistant machine.
 
-Tested on: Flair 300. Other models use the same register map, but their airflow
-limits and model detection still need confirming.
+Tested on: Flair 300 (appliance type 24). Other models use the same register
+map, but their appliance type numbers and airflow limits still need confirming.
 
 ## Requirements
 
@@ -81,6 +81,8 @@ back straight away.
 - Brink does not document which appliance type number belongs to which model.
   An unrecognised unit works with generic airflow limits and raises a repair
   issue asking you to report its number.
+- Brink's document gives humidity in tenths of a percent, but a Flair 300
+  reports whole percent, which is what the integration assumes.
 - There is no fault code register. **Fault** reflects the operating mode and fan
   states the unit reports.
 

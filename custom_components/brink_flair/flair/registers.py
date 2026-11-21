@@ -12,8 +12,7 @@ DEFAULT_BAUDRATE = 19200
 DEFAULT_PARITY = "E"
 DEFAULT_STOPBITS = 1
 
-# The document lists addresses as they go on the wire. Kept as one constant
-# so it can be corrected in one place if a unit turns out to number from 1.
+# The document lists addresses as they go on the wire, confirmed on a Flair 300.
 ADDRESS_OFFSET = 0
 
 # --- Input registers (function 0x04) -----------------------------------------
@@ -34,7 +33,7 @@ IR_SUPPLY_FLOW_SETPOINT = 4031  # m3/h
 IR_SUPPLY_FLOW = 4032  # m3/h
 IR_SUPPLY_FAN_SPEED = 4034  # rpm
 IR_SUPPLY_TEMPERATURE = 4036  # signed, 0.1 degC
-IR_SUPPLY_HUMIDITY = 4037  # 0.1 %
+IR_SUPPLY_HUMIDITY = 4037  # % (the document says 0.1 %, a Flair 300 reports whole %)
 
 IR_EXHAUST_FAN_STATUS = 4040
 IR_EXHAUST_FLOW_SETPOINT = 4041
@@ -51,9 +50,9 @@ IR_FROST_HEATER_POWER = 4071  # %
 IR_FROST_FAN_REDUCTION = 4072  # %
 
 IR_SWITCH_POSITION = 4080
-IR_NTC1_TEMPERATURE = 4081  # signed, 0.1 degC
+IR_NTC1_TEMPERATURE = 4081  # signed, 0.1 degC, 9999 when not fitted
 IR_NTC2_TEMPERATURE = 4082  # signed, 0.1 degC
-IR_RHT_HUMIDITY = 4083  # 0.1 %
+IR_RHT_HUMIDITY = 4083  # %, assumed to match 4037
 
 IR_FILTER_STATUS = 4100
 IR_OPERATING_HOURS = 4113  # 32-bit

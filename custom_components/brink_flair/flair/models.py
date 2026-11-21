@@ -30,7 +30,9 @@ UNKNOWN_MODEL = FlairModel(name="Flair", min_flow=50, max_flow=600)
 
 # Register 4004 holds an internal appliance type number that Brink does not
 # document. Entries are added here as they are confirmed on real units.
-APPLIANCE_TYPES: dict[int, FlairModel] = {}
+APPLIANCE_TYPES: dict[int, FlairModel] = {
+    24: FLAIR_300,
+}
 
 
 def model_for_appliance_type(appliance_type: int) -> FlairModel | None:
