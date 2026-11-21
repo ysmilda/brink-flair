@@ -1,0 +1,114 @@
+# Brink Flair Modbus TCP gateway
+#
+# Turns the "esphome-appliance" board (Seeed XIAO ESP32-C6 + TI THVD1500
+# RS-485 transceiver) into a Modbus TCP server on port 502. Every Modbus TCP
+# request is converted to Modbus RTU on the RS-485 bus to the Flair, and the
+# reply is sent back as Modbus TCP. The brink_flair integration connects to
+# this device as an ordinary Modbus TCP gateway.
+#
+# Pin mapping, taken from esphome-appliance.kicad_pcb:
+#   XIAO D6 / GPIO16 -> THVD1500 D   (TX)
+#   XIAO D7 / GPIO17 <- THVD1500 R   (RX, 10k pull-up R4)
+#   XIAO D5 / GPIO23 -> THVD1500 DE + /RE tied together (DIR, 10k pull-down R5 = receive by default)
+#   RS-485 A/B on J4 (SM712 TVS protected)
+#   XIAO D3 / GPIO21 = pulse input on J3, not used in this config
+#   RJ12 J2 (DSMR P1) also drives the RX net through U2: leave the RJ12 unplugged
+#   while this board is used for RS-485.
+
+substitutions:
+  name: brink-flair-gateway
+  friendly_name: Brink Flair gateway
+  # Flair Modbus serial settings. Check these against the installer menu on the
+  # unit's display and change them here if they differ.
+  flair_baud_rate: "19200"
+  flair_parity: EVEN
+  flair_stop_bits: "1"
+
+esphome:
+  name: ${name}
+  friendly_name: ${friendly_name}
+  min_version: 2026.9.0
+
+esp32:
+  board: seeed_xiao_esp32c6
+  variant: esp32c6
+  framework:
+    type: esp-idf
+
+logger:
+  # The hardware UART is used for RS-485, so keep logs off it.
+  hardware_uart: USB_SERIAL_JTAG
+
+api:
+  encryption:
+    key: !secret api_encryption_key
+
+ota:
+  - platform: esphome
+    password: !secret ota_password
+
+wifi:
+  ssid: !secret wifi_ssid
+  password: !secret wifi_password
+  ap:
+    ssid: "Brink Flair Gateway Fallback"
+    password: !secret ap_password
+
+captive_portal:
+
+external_components:
+  - source:
+      type: git
+      url: https://github.com/rosenrot00/esphome_modbus_bridge
+      ref: 2026.10.2
+    components: [modbus_bridge]
+
+uart:
+  id: rs485_bus
+  tx_pin: GPIO16
+  rx_pin: GPIO17
+  baud_rate: ${flair_baud_rate}
+  parity: ${flair_parity}
+  stop_bits: ${flair_stop_bits}
+  data_bits: 8
+  rx_buffer_size: 512
+
+modbus_bridge:
+  id: mb_bridge
+  uart_id: rs485_bus
+  tcp_port: 502
+  tcp_allowed_clients: 2
+  rtu_response_timeout: 1000
+  # DE and /RE share one GPIO on this board; the component handles shared use.
+  de_pin: GPIO23
+  re_pin: GPIO23
+  on_tcp_clients_changed:
+    then:
+      - sensor.template.publish:
+          id: mb_tcp_clients
+          state: !lambda "return (int) count;"
+
+sensor:
+  - platform: template
+    id: mb_tcp_clients
+    name: "Modbus TCP clients"
+    accuracy_decimals: 0
+    entity_category: diagnostic
+  - platform: wifi_signal
+    name: "WiFi signal"
+    update_interval: 60s
+    entity_category: diagnostic
+  - platform: uptime
+    name: "Uptime"
+    entity_category: diagnostic
+
+text_sensor:
+  - platform: wifi_info
+    ip_address:
+      name: "IP address"
+      entity_category: diagnostic
+
+button:
+  - platform: restart
+    name: "Restart"
+    entity_category: config

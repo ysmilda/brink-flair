@@ -1,0 +1,272 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Connect your Brink Flair",
+        "description": "How is the Flair connected to Home Assistant?",
+        "menu_options": {
+          "tcp": "Modbus TCP gateway",
+          "serial": "Serial RS-485 adapter"
+        }
+      },
+      "tcp": {
+        "title": "Modbus TCP gateway",
+        "description": "Enter the address of the RS-485 to Modbus TCP gateway that is wired to the Flair.",
+        "data": {
+          "host": "Host",
+          "port": "Port",
+          "unit_id": "Modbus address"
+        },
+        "data_description": {
+          "host": "Hostname or IP address of the gateway.",
+          "port": "TCP port of the gateway, usually 502.",
+          "unit_id": "The Flair's Modbus slave address, set in installer menu step 14.2. The factory value is 20."
+        }
+      },
+      "serial": {
+        "title": "Serial RS-485 adapter",
+        "description": "Pick the RS-485 adapter that is wired to the Flair and enter the Flair's Modbus settings.",
+        "data": {
+          "device": "Serial port",
+          "baudrate": "Baud rate",
+          "parity": "Parity",
+          "stopbits": "Stop bits",
+          "unit_id": "Modbus address"
+        },
+        "data_description": {
+          "device": "The USB RS-485 adapter.",
+          "baudrate": "Installer menu step 14.3. The factory value is 19200.",
+          "parity": "Installer menu step 14.4. The factory value is even.",
+          "stopbits": "Usually 1.",
+          "unit_id": "The Flair's Modbus slave address, set in installer menu step 14.2. The factory value is 20."
+        }
+      },
+      "reconfigure": {
+        "title": "Change the connection",
+        "description": "How is the Flair connected to Home Assistant now?",
+        "menu_options": {
+          "reconfigure_tcp": "Modbus TCP gateway",
+          "reconfigure_serial": "Serial RS-485 adapter"
+        }
+      }
+    },
+    "error": {
+      "cannot_connect": "Could not reach the Flair: {error}"
+    },
+    "abort": {
+      "already_configured": "This Flair is already configured.",
+      "reconfigure_successful": "The connection was updated.",
+      "unique_id_mismatch": "These settings reach a different Flair than the one this entry belongs to."
+    }
+  },
+  "selector": {
+    "parity": {
+      "options": {
+        "N": "None",
+        "E": "Even",
+        "O": "Odd"
+      }
+    }
+  },
+  "entity": {
+    "binary_sensor": {
+      "filter_dirty": {
+        "name": "Filter"
+      },
+      "error": {
+        "name": "Fault"
+      },
+      "frost_protection": {
+        "name": "Frost protection"
+      },
+      "preheater": {
+        "name": "Preheater"
+      }
+    },
+    "button": {
+      "reset_filter": {
+        "name": "Reset filter"
+      }
+    },
+    "fan": {
+      "ventilation": {
+        "state_attributes": {
+          "preset_mode": {
+            "state": {
+              "holiday": "Holiday",
+              "low": "Low",
+              "normal": "Normal",
+              "high": "High",
+              "auto": "Auto"
+            }
+          }
+        }
+      }
+    },
+    "number": {
+      "flow_preset_holiday": {
+        "name": "Airflow holiday"
+      },
+      "flow_preset_low": {
+        "name": "Airflow low"
+      },
+      "flow_preset_normal": {
+        "name": "Airflow normal"
+      },
+      "flow_preset_high": {
+        "name": "Airflow high"
+      },
+      "bypass_temp_indoor": {
+        "name": "Bypass indoor temperature"
+      },
+      "bypass_temp_outdoor": {
+        "name": "Bypass outdoor temperature"
+      },
+      "bypass_hysteresis": {
+        "name": "Bypass hysteresis"
+      },
+      "filter_interval": {
+        "name": "Filter interval"
+      }
+    },
+    "select": {
+      "bypass_mode": {
+        "name": "Bypass mode",
+        "state": {
+          "automatic": "Automatic",
+          "closed": "Closed",
+          "open": "Open"
+        }
+      }
+    },
+    "sensor": {
+      "supply_flow": {
+        "name": "Supply airflow"
+      },
+      "exhaust_flow": {
+        "name": "Exhaust airflow"
+      },
+      "supply_flow_setpoint": {
+        "name": "Supply airflow setpoint"
+      },
+      "exhaust_flow_setpoint": {
+        "name": "Exhaust airflow setpoint"
+      },
+      "supply_temperature": {
+        "name": "Supply air temperature"
+      },
+      "exhaust_temperature": {
+        "name": "Exhaust air temperature"
+      },
+      "ntc1_temperature": {
+        "name": "Outdoor air temperature"
+      },
+      "ntc2_temperature": {
+        "name": "Temperature sensor 2"
+      },
+      "supply_humidity": {
+        "name": "Supply air humidity"
+      },
+      "exhaust_humidity": {
+        "name": "Exhaust air humidity"
+      },
+      "rht_humidity": {
+        "name": "Humidity"
+      },
+      "supply_fan_speed": {
+        "name": "Supply fan speed"
+      },
+      "exhaust_fan_speed": {
+        "name": "Exhaust fan speed"
+      },
+      "supply_pressure": {
+        "name": "Supply pressure"
+      },
+      "exhaust_pressure": {
+        "name": "Exhaust pressure"
+      },
+      "bypass": {
+        "name": "Bypass",
+        "state": {
+          "initializing": "Initializing",
+          "open": "Open",
+          "closed": "Closed"
+        }
+      },
+      "active_function": {
+        "name": "Operating mode",
+        "state": {
+          "standby": "Standby",
+          "bootloader": "Bootloader",
+          "non_blocking_error": "Fault, still running",
+          "blocking_error": "Fault, stopped",
+          "manual": "Manual",
+          "holiday": "Holiday",
+          "night_ventilation": "Night ventilation",
+          "party": "Party",
+          "bypass_boost": "Bypass boost",
+          "normal_boost": "Boost",
+          "auto_co2": "Auto (CO2)",
+          "auto_ebus": "Auto (eBus)",
+          "auto_modbus": "Auto (Modbus)",
+          "auto_portal": "Auto (Brink Home)",
+          "auto_local": "Auto (local network)"
+        }
+      },
+      "frost_status": {
+        "name": "Frost protection status",
+        "state": {
+          "not_initialized": "Not initialized",
+          "power_up_delay": "Starting up",
+          "no_frost": "No frost",
+          "no_frost_delay": "No frost, waiting",
+          "start_delay": "Starting",
+          "wait_for_icing": "Watching for ice",
+          "ice_detected_delay": "Ice detected",
+          "heating": "Heating",
+          "wait_for_free_heater": "Waiting for heater",
+          "fan_control_start_delay": "Reducing fans soon",
+          "fan_control_wait_delay": "Reducing fans, waiting",
+          "fan_control": "Reducing fans",
+          "fan_off_delay": "Stopping fans soon",
+          "fan_off": "Fans stopped",
+          "fan_restarting": "Restarting fans",
+          "error": "Error",
+          "test_mode": "Test mode"
+        }
+      },
+      "filter_days_remaining": {
+        "name": "Filter days remaining"
+      },
+      "operating_hours": {
+        "name": "Operating hours"
+      },
+      "preheater_capacity": {
+        "name": "Preheater capacity"
+      },
+      "co2": {
+        "name": "CO2 sensor {number}"
+      }
+    }
+  },
+  "exceptions": {
+    "cannot_connect": {
+      "message": "Could not reach the Flair: {error}"
+    },
+    "update_failed": {
+      "message": "Reading the Flair failed: {error}"
+    },
+    "write_failed": {
+      "message": "Changing the Flair's setting failed: {error}"
+    },
+    "flow_out_of_order": {
+      "message": "{flow} m³/h is outside {lower} to {upper} m³/h. Each level's airflow must lie between the levels below and above it."
+    }
+  },
+  "issues": {
+    "unknown_model": {
+      "title": "Unknown Flair model",
+      "description": "{title} reports appliance type {appliance_type}, which this integration does not recognise yet. It works with generic airflow limits. Please open an issue with this number and your Flair's model so it can be added."
+    }
+  }
+}

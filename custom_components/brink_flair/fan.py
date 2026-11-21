@@ -1,0 +1,123 @@
+"""Ventilation control for the Brink Flair integration."""
+
+from typing import Any
+
+from homeassistant.components.fan import FanEntity, FanEntityFeature
+from homeassistant.core import HomeAssistant
+from homeassistant.helpers.entity_platform import AddConfigEntryEntitiesCallback
+from homeassistant.util.percentage import (
+    ordered_list_item_to_percentage,
+    percentage_to_ordered_list_item,
+)
+
+from .coordinator import BrinkFlairConfigEntry, BrinkFlairCoordinator
+from .entity import BrinkFlairEntity
+from .flair import ActiveFunction, ControlMode, VentilationLevel
+
+PARALLEL_UPDATES = 1
+
+PRESET_AUTO = "auto"
+LEVELS = [
+    VentilationLevel.HOLIDAY,
+    VentilationLevel.LOW,
+    VentilationLevel.NORMAL,
+    VentilationLevel.HIGH,
+]
+PRESET_FOR_LEVEL = {level: level.name.lower() for level in LEVELS}
+LEVEL_FOR_PRESET = {preset: level for level, preset in PRESET_FOR_LEVEL.items()}
+
+
+async def async_setup_entry(
+    hass: HomeAssistant,
+    entry: BrinkFlairConfigEntry,
+    async_add_entities: AddConfigEntryEntitiesCallback,
+) -> None:
+    """Set up the ventilation fan."""
+    async_add_entities([BrinkFlairFan(entry.runtime_data)])
+
+
+class BrinkFlairFan(BrinkFlairEntity, FanEntity):
+    """The unit's ventilation, as a fan with a preset per level."""
+
+    _attr_name = None
+    _attr_translation_key = "ventilation"
+    _attr_preset_modes = [*PRESET_FOR_LEVEL.values(), PRESET_AUTO]
+    _attr_speed_count = len(LEVELS)
+    _attr_supported_features = (
+        FanEntityFeature.SET_SPEED
+        | FanEntityFeature.PRESET_MODE
+        | FanEntityFeature.TURN_ON
+        | FanEntityFeature.TURN_OFF
+    )
+
+    def __init__(self, coordinator: BrinkFlairCoordinator) -> None:
+        """Initialize the fan."""
+        super().__init__(coordinator, "ventilation")
+
+    def _level(self) -> VentilationLevel | None:
+        mode = self.coordinator.data.ventilation_mode
+        return VentilationLevel(mode) if mode in iter(VentilationLevel) else None
+
+    @property
+    def is_on(self) -> bool:
+        """Whether the unit is ventilating."""
+        data = self.coordinator.data
+        return not data.standby and data.active_function != ActiveFunction.STANDBY
+
+    @property
+    def percentage(self) -> int | None:
+        """The current level as a percentage."""
+        if not self.is_on:
+            return 0
+        if (level := self._level()) is None:
+            return None
+        return ordered_list_item_to_percentage(LEVELS, level)
+
+    @property
+    def preset_mode(self) -> str | None:
+        """The current level, or auto when the unit controls itself."""
+        if self.coordinator.data.control_mode == ControlMode.OFF:
+            return PRESET_AUTO
+        if (level := self._level()) is None:
+            return None
+        return PRESET_FOR_LEVEL[level]
+
+    async def async_set_percentage(self, percentage: int) -> None:
+        """Set the level closest to a percentage; 0 puts the unit in standby."""
+        if percentage == 0:
+            await self.async_turn_off()
+            return
+        level = percentage_to_ordered_list_item(LEVELS, percentage)
+        await self._async_set_level(level)
+
+    async def async_set_preset_mode(self, preset_mode: str) -> None:
+        """Set a level, or hand control back to the unit."""
+        if preset_mode == PRESET_AUTO:
+            await self._async_write(self.coordinator.device.async_release_control())
+            return
+        await self._async_set_level(LEVEL_FOR_PRESET[preset_mode])
+
+    async def _async_set_level(self, level: VentilationLevel) -> None:
+        device = self.coordinator.device
+        if self.coordinator.data.standby:
+            await self._async_write(device.async_set_standby(False))
+        await self._async_write(device.async_set_level(level))
+
+    async def async_turn_on(
+        self,
+        percentage: int | None = None,
+        preset_mode: str | None = None,
+        **kwargs: Any,
+    ) -> None:
+        """Wake the unit, optionally at a level."""
+        if preset_mode is not None:
+            await self._async_write(self.coordinator.device.async_set_standby(False))
+            await self.async_set_preset_mode(preset_mode)
+        elif percentage is not None:
+            await self.async_set_percentage(percentage)
+        else:
+            await self._async_write(self.coordinator.device.async_set_standby(False))
+
+    async def async_turn_off(self, **kwargs: Any) -> None:
+        """Put the unit in standby."""
+        await self._async_write(self.coordinator.device.async_set_standby(True))

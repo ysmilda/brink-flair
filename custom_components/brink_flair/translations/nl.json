@@ -1,0 +1,272 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Verbind je Brink Flair",
+        "description": "Hoe is de Flair met Home Assistant verbonden?",
+        "menu_options": {
+          "tcp": "Modbus TCP-gateway",
+          "serial": "Seriële RS-485-adapter"
+        }
+      },
+      "tcp": {
+        "title": "Modbus TCP-gateway",
+        "description": "Vul het adres in van de RS-485 naar Modbus TCP-gateway die op de Flair is aangesloten.",
+        "data": {
+          "host": "Host",
+          "port": "Poort",
+          "unit_id": "Modbus-adres"
+        },
+        "data_description": {
+          "host": "Hostnaam of IP-adres van de gateway.",
+          "port": "TCP-poort van de gateway, meestal 502.",
+          "unit_id": "Het Modbus-slave-adres van de Flair, instelbaar in installateursmenu stap 14.2. De fabriekswaarde is 20."
+        }
+      },
+      "serial": {
+        "title": "Seriële RS-485-adapter",
+        "description": "Kies de RS-485-adapter die op de Flair is aangesloten en vul de Modbus-instellingen van de Flair in.",
+        "data": {
+          "device": "Seriële poort",
+          "baudrate": "Baudrate",
+          "parity": "Pariteit",
+          "stopbits": "Stopbits",
+          "unit_id": "Modbus-adres"
+        },
+        "data_description": {
+          "device": "De USB RS-485-adapter.",
+          "baudrate": "Installateursmenu stap 14.3. De fabriekswaarde is 19200.",
+          "parity": "Installateursmenu stap 14.4. De fabriekswaarde is even.",
+          "stopbits": "Meestal 1.",
+          "unit_id": "Het Modbus-slave-adres van de Flair, instelbaar in installateursmenu stap 14.2. De fabriekswaarde is 20."
+        }
+      },
+      "reconfigure": {
+        "title": "Verbinding wijzigen",
+        "description": "Hoe is de Flair nu met Home Assistant verbonden?",
+        "menu_options": {
+          "reconfigure_tcp": "Modbus TCP-gateway",
+          "reconfigure_serial": "Seriële RS-485-adapter"
+        }
+      }
+    },
+    "error": {
+      "cannot_connect": "De Flair is niet bereikbaar: {error}"
+    },
+    "abort": {
+      "already_configured": "Deze Flair is al ingesteld.",
+      "reconfigure_successful": "De verbinding is bijgewerkt.",
+      "unique_id_mismatch": "Met deze instellingen bereik je een andere Flair dan die van deze configuratie."
+    }
+  },
+  "selector": {
+    "parity": {
+      "options": {
+        "N": "Geen",
+        "E": "Even",
+        "O": "Oneven"
+      }
+    }
+  },
+  "entity": {
+    "binary_sensor": {
+      "filter_dirty": {
+        "name": "Filter"
+      },
+      "error": {
+        "name": "Storing"
+      },
+      "frost_protection": {
+        "name": "Vorstbeveiliging"
+      },
+      "preheater": {
+        "name": "Voorverwarmer"
+      }
+    },
+    "button": {
+      "reset_filter": {
+        "name": "Filter resetten"
+      }
+    },
+    "fan": {
+      "ventilation": {
+        "state_attributes": {
+          "preset_mode": {
+            "state": {
+              "holiday": "Afwezig",
+              "low": "Laag",
+              "normal": "Normaal",
+              "high": "Hoog",
+              "auto": "Automatisch"
+            }
+          }
+        }
+      }
+    },
+    "number": {
+      "flow_preset_holiday": {
+        "name": "Luchthoeveelheid afwezig"
+      },
+      "flow_preset_low": {
+        "name": "Luchthoeveelheid laag"
+      },
+      "flow_preset_normal": {
+        "name": "Luchthoeveelheid normaal"
+      },
+      "flow_preset_high": {
+        "name": "Luchthoeveelheid hoog"
+      },
+      "bypass_temp_indoor": {
+        "name": "Bypass binnentemperatuur"
+      },
+      "bypass_temp_outdoor": {
+        "name": "Bypass buitentemperatuur"
+      },
+      "bypass_hysteresis": {
+        "name": "Bypass-hysterese"
+      },
+      "filter_interval": {
+        "name": "Filterinterval"
+      }
+    },
+    "select": {
+      "bypass_mode": {
+        "name": "Bypassstand",
+        "state": {
+          "automatic": "Automatisch",
+          "closed": "Dicht",
+          "open": "Open"
+        }
+      }
+    },
+    "sensor": {
+      "supply_flow": {
+        "name": "Toevoerdebiet"
+      },
+      "exhaust_flow": {
+        "name": "Afvoerdebiet"
+      },
+      "supply_flow_setpoint": {
+        "name": "Toevoerdebiet setpoint"
+      },
+      "exhaust_flow_setpoint": {
+        "name": "Afvoerdebiet setpoint"
+      },
+      "supply_temperature": {
+        "name": "Toevoerluchttemperatuur"
+      },
+      "exhaust_temperature": {
+        "name": "Afvoerluchttemperatuur"
+      },
+      "ntc1_temperature": {
+        "name": "Buitenluchttemperatuur"
+      },
+      "ntc2_temperature": {
+        "name": "Temperatuursensor 2"
+      },
+      "supply_humidity": {
+        "name": "Toevoerluchtvochtigheid"
+      },
+      "exhaust_humidity": {
+        "name": "Afvoerluchtvochtigheid"
+      },
+      "rht_humidity": {
+        "name": "Luchtvochtigheid"
+      },
+      "supply_fan_speed": {
+        "name": "Toerental toevoerventilator"
+      },
+      "exhaust_fan_speed": {
+        "name": "Toerental afvoerventilator"
+      },
+      "supply_pressure": {
+        "name": "Toevoerdruk"
+      },
+      "exhaust_pressure": {
+        "name": "Afvoerdruk"
+      },
+      "bypass": {
+        "name": "Bypass",
+        "state": {
+          "initializing": "Initialiseren",
+          "open": "Open",
+          "closed": "Dicht"
+        }
+      },
+      "active_function": {
+        "name": "Bedrijfsstand",
+        "state": {
+          "standby": "Stand-by",
+          "bootloader": "Bootloader",
+          "non_blocking_error": "Storing, draait door",
+          "blocking_error": "Storing, gestopt",
+          "manual": "Handmatig",
+          "holiday": "Afwezig",
+          "night_ventilation": "Nachtventilatie",
+          "party": "Party",
+          "bypass_boost": "Bypass-boost",
+          "normal_boost": "Boost",
+          "auto_co2": "Automatisch (CO2)",
+          "auto_ebus": "Automatisch (eBus)",
+          "auto_modbus": "Automatisch (Modbus)",
+          "auto_portal": "Automatisch (Brink Home)",
+          "auto_local": "Automatisch (lokaal netwerk)"
+        }
+      },
+      "frost_status": {
+        "name": "Status vorstbeveiliging",
+        "state": {
+          "not_initialized": "Niet geïnitialiseerd",
+          "power_up_delay": "Opstarten",
+          "no_frost": "Geen vorst",
+          "no_frost_delay": "Geen vorst, wachten",
+          "start_delay": "Starten",
+          "wait_for_icing": "Bewaken op ijs",
+          "ice_detected_delay": "IJs gedetecteerd",
+          "heating": "Verwarmen",
+          "wait_for_free_heater": "Wachten op verwarmer",
+          "fan_control_start_delay": "Ventilatoren straks terug",
+          "fan_control_wait_delay": "Ventilatoren terug, wachten",
+          "fan_control": "Ventilatoren teruggeregeld",
+          "fan_off_delay": "Ventilatoren straks uit",
+          "fan_off": "Ventilatoren uit",
+          "fan_restarting": "Ventilatoren herstarten",
+          "error": "Fout",
+          "test_mode": "Testmodus"
+        }
+      },
+      "filter_days_remaining": {
+        "name": "Dagen tot filtermelding"
+      },
+      "operating_hours": {
+        "name": "Bedrijfsuren"
+      },
+      "preheater_capacity": {
+        "name": "Vermogen voorverwarmer"
+      },
+      "co2": {
+        "name": "CO2-sensor {number}"
+      }
+    }
+  },
+  "exceptions": {
+    "cannot_connect": {
+      "message": "De Flair is niet bereikbaar: {error}"
+    },
+    "update_failed": {
+      "message": "Uitlezen van de Flair is mislukt: {error}"
+    },
+    "write_failed": {
+      "message": "Wijzigen van de instelling is mislukt: {error}"
+    },
+    "flow_out_of_order": {
+      "message": "{flow} m³/h valt buiten {lower} tot {upper} m³/h. De luchthoeveelheid van elke stand moet tussen die van de stand eronder en erboven liggen."
+    }
+  },
+  "issues": {
+    "unknown_model": {
+      "title": "Onbekend Flair-model",
+      "description": "{title} meldt toesteltype {appliance_type}, dat deze integratie nog niet kent. De integratie werkt met algemene debietgrenzen. Open een issue met dit nummer en het model van je Flair zodat het kan worden toegevoegd."
+    }
+  }
+}

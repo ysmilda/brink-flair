@@ -1,0 +1,14 @@
+{
+  "domain": "brink_flair",
+  "name": "Brink Flair",
+  "codeowners": ["@ysmilda"],
+  "config_flow": true,
+  "dependencies": ["modbus", "usb"],
+  "documentation": "https://github.com/ysmilda/brink-flair",
+  "integration_type": "device",
+  "iot_class": "local_polling",
+  "issue_tracker": "https://github.com/ysmilda/brink-flair/issues",
+  "loggers": ["modbus_connection", "tmodbus"],
+  "requirements": [],
+  "version": "0.1.0"
+}

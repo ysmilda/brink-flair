@@ -1,0 +1,101 @@
+{
+  "entity": {
+    "binary_sensor": {
+      "filter_dirty": {
+        "default": "mdi:air-filter"
+      },
+      "frost_protection": {
+        "default": "mdi:snowflake-melt"
+      }
+    },
+    "button": {
+      "reset_filter": {
+        "default": "mdi:air-filter"
+      }
+    },
+    "fan": {
+      "ventilation": {
+        "default": "mdi:hvac",
+        "state_attributes": {
+          "preset_mode": {
+            "default": "mdi:fan",
+            "state": {
+              "holiday": "mdi:bag-suitcase",
+              "low": "mdi:fan-speed-1",
+              "normal": "mdi:fan-speed-2",
+              "high": "mdi:fan-speed-3",
+              "auto": "mdi:fan-auto"
+            }
+          }
+        }
+      }
+    },
+    "number": {
+      "flow_preset_holiday": {
+        "default": "mdi:fan"
+      },
+      "flow_preset_low": {
+        "default": "mdi:fan"
+      },
+      "flow_preset_normal": {
+        "default": "mdi:fan"
+      },
+      "flow_preset_high": {
+        "default": "mdi:fan"
+      },
+      "bypass_temp_indoor": {
+        "default": "mdi:home-thermometer"
+      },
+      "bypass_temp_outdoor": {
+        "default": "mdi:sun-thermometer"
+      },
+      "bypass_hysteresis": {
+        "default": "mdi:thermometer-lines"
+      },
+      "filter_interval": {
+        "default": "mdi:calendar-clock"
+      }
+    },
+    "select": {
+      "bypass_mode": {
+        "default": "mdi:valve"
+      }
+    },
+    "sensor": {
+      "supply_flow": {
+        "default": "mdi:home-import-outline"
+      },
+      "exhaust_flow": {
+        "default": "mdi:home-export-outline"
+      },
+      "supply_fan_speed": {
+        "default": "mdi:fan"
+      },
+      "exhaust_fan_speed": {
+        "default": "mdi:fan"
+      },
+      "bypass": {
+        "default": "mdi:valve",
+        "state": {
+          "open": "mdi:valve-open",
+          "closed": "mdi:valve-closed"
+        }
+      },
+      "active_function": {
+        "default": "mdi:information-outline"
+      },
+      "frost_status": {
+        "default": "mdi:snowflake"
+      },
+      "filter_days_remaining": {
+        "default": "mdi:air-filter"
+      },
+      "operating_hours": {
+        "default": "mdi:timer-outline"
+      },
+      "preheater_capacity": {
+        "default": "mdi:radiator"
+      }
+    }
+  }
+}
