@@ -6,7 +6,13 @@ from typing import Any
 from homeassistant.const import CONF_DEVICE, CONF_HOST, CONF_PORT, CONF_TYPE
 from modbus_connection import ModbusSerialParams, ModbusTcpParams
 
-from .const import CONF_BAUDRATE, CONF_PARITY, CONF_STOPBITS, TYPE_SERIAL
+from .const import (
+    CONF_BAUDRATE,
+    CONF_PARITY,
+    CONF_STOPBITS,
+    PARITY_OPTIONS,
+    TYPE_SERIAL,
+)
 
 
 def create_modbus_params(
@@ -17,7 +23,7 @@ def create_modbus_params(
         return ModbusSerialParams(
             device=data[CONF_DEVICE],
             baudrate=data[CONF_BAUDRATE],
-            parity=data[CONF_PARITY],
+            parity=PARITY_OPTIONS[data[CONF_PARITY]],
             stopbits=data[CONF_STOPBITS],
         )
     return ModbusTcpParams(host=data[CONF_HOST], port=data[CONF_PORT])

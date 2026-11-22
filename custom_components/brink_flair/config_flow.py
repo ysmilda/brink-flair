@@ -28,12 +28,12 @@ from .const import (
     CONF_UNIT_ID,
     DEFAULT_PORT,
     DOMAIN,
+    PARITY_OPTIONS,
     TYPE_SERIAL,
     TYPE_TCP,
 )
 from .flair import (
     DEFAULT_BAUDRATE,
-    DEFAULT_PARITY,
     DEFAULT_STOPBITS,
     DEFAULT_UNIT_ID,
     FlairDevice,
@@ -75,9 +75,9 @@ STEP_SERIAL_DATA_SCHEMA = probatio.Schema(
             ),
             probatio.Coerce(int),
         ),
-        probatio.Required(CONF_PARITY, default=DEFAULT_PARITY): SelectSelector(
+        probatio.Required(CONF_PARITY, default="even"): SelectSelector(
             SelectSelectorConfig(
-                options=["N", "E", "O"],
+                options=list(PARITY_OPTIONS),
                 mode=SelectSelectorMode.DROPDOWN,
                 translation_key=CONF_PARITY,
             )

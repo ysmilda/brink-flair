@@ -11,6 +11,9 @@ CONF_PARITY: Final = "parity"
 CONF_STOPBITS: Final = "stopbits"
 CONF_UNIT_ID: Final = "unit_id"
 
+# Option keys shown in the UI, mapped to the parity letters Modbus uses.
+PARITY_OPTIONS: Final = {"none": "N", "even": "E", "odd": "O"}
+
 TYPE_TCP: Final = "tcp"
 TYPE_SERIAL: Final = "serial"
 

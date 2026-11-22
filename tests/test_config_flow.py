@@ -27,7 +27,7 @@ TCP_INPUT = {CONF_HOST: "192.0.2.10", CONF_PORT: 502, CONF_UNIT_ID: 20}
 SERIAL_INPUT = {
     CONF_DEVICE: "/dev/ttyUSB0",
     CONF_BAUDRATE: "19200",
-    CONF_PARITY: "E",
+    CONF_PARITY: "even",
     CONF_STOPBITS: "1",
     CONF_UNIT_ID: 20,
 }
@@ -67,7 +67,7 @@ async def test_serial(hass: HomeAssistant) -> None:
         CONF_TYPE: TYPE_SERIAL,
         CONF_DEVICE: "/dev/ttyUSB0",
         CONF_BAUDRATE: 19200,
-        CONF_PARITY: "E",
+        CONF_PARITY: "even",
         CONF_STOPBITS: 1,
         CONF_UNIT_ID: 20,
     }
