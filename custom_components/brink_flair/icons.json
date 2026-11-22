@@ -20,18 +20,17 @@
           "preset_mode": {
             "default": "mdi:fan",
             "state": {
-              "holiday": "mdi:bag-suitcase",
+              "away": "mdi:bag-suitcase",
               "low": "mdi:fan-speed-1",
               "normal": "mdi:fan-speed-2",
-              "high": "mdi:fan-speed-3",
-              "auto": "mdi:fan-auto"
+              "high": "mdi:fan-speed-3"
             }
           }
         }
       }
     },
     "number": {
-      "flow_preset_holiday": {
+      "flow_preset_away": {
         "default": "mdi:fan"
       },
       "flow_preset_low": {

@@ -8,13 +8,12 @@ from homeassistant.helpers.entity_platform import AddConfigEntryEntitiesCallback
 
 from .coordinator import BrinkFlairConfigEntry, BrinkFlairCoordinator
 from .entity import BrinkFlairEntity
-from .flair import ActiveFunction, ControlMode, VentilationLevel
+from .flair import ActiveFunction, VentilationLevel
 
 PARALLEL_UPDATES = 1
 
-PRESET_AUTO = "auto"
 LEVELS = [
-    VentilationLevel.HOLIDAY,
+    VentilationLevel.AWAY,
     VentilationLevel.LOW,
     VentilationLevel.NORMAL,
     VentilationLevel.HIGH,
@@ -37,7 +36,7 @@ class BrinkFlairFan(BrinkFlairEntity, FanEntity):
 
     _attr_name = None
     _attr_translation_key = "ventilation"
-    _attr_preset_modes = [*PRESET_FOR_LEVEL.values(), PRESET_AUTO]
+    _attr_preset_modes = list(PRESET_FOR_LEVEL.values())
     _attr_supported_features = (
         FanEntityFeature.PRESET_MODE
         | FanEntityFeature.TURN_ON
@@ -60,18 +59,13 @@ class BrinkFlairFan(BrinkFlairEntity, FanEntity):
 
     @property
     def preset_mode(self) -> str | None:
-        """The current level, or auto when the unit controls itself."""
-        if self.coordinator.data.control_mode == ControlMode.OFF:
-            return PRESET_AUTO
+        """The current level."""
         if (level := self._level()) is None:
             return None
         return PRESET_FOR_LEVEL[level]
 
     async def async_set_preset_mode(self, preset_mode: str) -> None:
-        """Set a level, or hand control back to the unit."""
-        if preset_mode == PRESET_AUTO:
-            await self._async_write(self.coordinator.device.async_release_control())
-            return
+        """Set a level, taking over control from the display and wall switch."""
         await self._async_set_level(LEVEL_FOR_PRESET[preset_mode])
 
     async def _async_set_level(self, level: VentilationLevel) -> None:

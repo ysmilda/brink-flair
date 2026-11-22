@@ -206,9 +206,9 @@ class BrinkFlairFlowPresetNumber(BrinkFlairEntity, NumberEntity):
         self._level = level
         self._attr_translation_key = key
         model = coordinator.device.model
-        # Level 0 (holiday) may be switched off entirely.
+        # Level 0 (away) may be switched off entirely.
         self._attr_native_min_value = (
-            0 if level == VentilationLevel.HOLIDAY else model.min_flow
+            0 if level == VentilationLevel.AWAY else model.min_flow
         )
         self._attr_native_max_value = model.max_flow
 

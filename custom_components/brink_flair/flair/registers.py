@@ -108,13 +108,10 @@ class ActiveFunction(IntEnum):
 class VentilationLevel(IntEnum):
     """Ventilation level (registers 4022, 4080 and 8001)."""
 
-    HOLIDAY = 0
+    AWAY = 0
     LOW = 1
     NORMAL = 2
     HIGH = 3
-
-
-VENTILATION_MODE_AUTO = 4
 
 
 class FanStatus(IntEnum):

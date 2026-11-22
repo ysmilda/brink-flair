@@ -93,19 +93,18 @@
         "state_attributes": {
           "preset_mode": {
             "state": {
-              "holiday": "Holiday",
+              "away": "Away",
               "low": "Low",
               "normal": "Normal",
-              "high": "High",
-              "auto": "Auto"
+              "high": "High"
             }
           }
         }
       }
     },
     "number": {
-      "flow_preset_holiday": {
-        "name": "Airflow holiday"
+      "flow_preset_away": {
+        "name": "Airflow away"
       },
       "flow_preset_low": {
         "name": "Airflow low"

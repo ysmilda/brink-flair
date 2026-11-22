@@ -345,11 +345,6 @@ class FlairDevice:
         await self._apply_level(level)
         self._requested_level = level
 
-    async def async_release_control(self) -> None:
-        """Hand control back to the unit's display and wall switch."""
-        await self._write(r.RC_CONTROL, r.ControlMode.OFF)
-        self._requested_level = None
-
     async def async_set_standby(self, standby: bool) -> None:
         """Put the unit in standby, or wake it."""
         await self._write(r.RC_STANDBY, 1 if standby else 2)

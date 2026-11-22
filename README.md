@@ -44,8 +44,8 @@ To remove it, delete the entry from **Devices & services**.
 
 | Entity | Type | Notes |
 | --- | --- | --- |
-| Ventilation | fan | Presets holiday, low, normal, high and auto. Off puts the unit in standby. |
-| Airflow holiday / low / normal / high | number | m³/h behind each level, kept in order |
+| Ventilation | fan | Presets away, low, normal and high. Off puts the unit in standby. |
+| Airflow away / low / normal / high | number | m³/h behind each level, kept in order |
 | Bypass mode | select | Automatic, closed or open |
 | Bypass indoor / outdoor temperature, hysteresis | number | The automatic bypass limits |
 | Filter interval | number | Days between filter warnings |
@@ -61,8 +61,9 @@ To remove it, delete the entry from **Devices & services**.
 ### How control works
 
 Choosing a level takes over control through Modbus. While Home Assistant is in
-control, the unit's display and wall switch can't change the level. Choose the
-**auto** preset to hand control back to them.
+control, the unit's display and wall switch can't change the level. The
+integration can't hand control back, so once it has taken control, the display
+and wall switch stay locked out.
 
 The Flair forgets Modbus control after a power cut. The integration notices this
 on its next poll and sends the level again.
@@ -75,7 +76,7 @@ back straight away.
 ## Examples
 
 - Force the bypass open on warm summer nights when it is cooler outside.
-- Raise the level to high while the shower humidity is up, then return to auto.
+- Raise the level to high while the shower humidity is up, then set it back to normal.
 - Notify when **Filter** turns on, and press **Reset filter** after the change.
 
 ## Known limitations

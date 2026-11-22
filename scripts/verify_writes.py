@@ -1,8 +1,8 @@
 """Check every setting write of the integration against a real Flair.
 
 Each setting is changed through the integration's own protocol code, read
-back, and restored to its original value. The filter reset and handing
-control back (auto) are left out, because neither can be undone remotely.
+back, and restored to its original value. The filter reset is left out,
+because it cannot be undone remotely.
 
 Usage:
     python scripts/verify_writes.py HOST [PORT] [UNIT_ID]

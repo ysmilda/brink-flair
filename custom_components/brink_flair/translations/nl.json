@@ -93,18 +93,17 @@
         "state_attributes": {
           "preset_mode": {
             "state": {
-              "holiday": "Afwezig",
+              "away": "Afwezig",
               "low": "Laag",
               "normal": "Normaal",
-              "high": "Hoog",
-              "auto": "Automatisch"
+              "high": "Hoog"
             }
           }
         }
       }
     },
     "number": {
-      "flow_preset_holiday": {
+      "flow_preset_away": {
         "name": "Luchthoeveelheid afwezig"
       },
       "flow_preset_low": {

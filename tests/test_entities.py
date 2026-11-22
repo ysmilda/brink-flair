@@ -122,19 +122,6 @@ async def test_fan_preset_when_already_in_control(
     assert patch_modbus.holding[8001] == 1
 
 
-async def test_fan_auto(hass: HomeAssistant, patch_modbus: MockModbusUnit) -> None:
-    """The auto preset hands control back to the unit."""
-    await _call(
-        hass,
-        FAN_DOMAIN,
-        SERVICE_SET_PRESET_MODE,
-        {ATTR_ENTITY_ID: FAN, ATTR_PRESET_MODE: "auto"},
-    )
-    assert patch_modbus.holding[8000] == 0
-    await hass.async_block_till_done()
-    assert hass.states.get(FAN).attributes[ATTR_PRESET_MODE] == "auto"
-
-
 async def test_fan_turn_on_with_preset(
     hass: HomeAssistant, patch_modbus: MockModbusUnit
 ) -> None:
