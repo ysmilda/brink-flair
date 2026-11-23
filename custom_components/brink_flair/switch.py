@@ -1,6 +1,5 @@
 """Installer switches for the Brink Flair integration."""
 
-from collections.abc import Callable, Coroutine
 from dataclasses import dataclass
 from typing import Any
 
@@ -11,7 +10,7 @@ from homeassistant.helpers.entity_platform import AddConfigEntryEntitiesCallback
 
 from .coordinator import BrinkFlairConfigEntry, BrinkFlairCoordinator
 from .entity import BrinkFlairEntity
-from .flair import FlairDevice, FlairState
+from .flair import GEO_HEAT_EXCHANGER, IMBALANCE_ALLOWED, Setting, setting_value
 
 PARALLEL_UPDATES = 1
 
@@ -20,10 +19,7 @@ PARALLEL_UPDATES = 1
 class BrinkFlairSwitchDescription(SwitchEntityDescription):
     """Describes a Brink Flair switch."""
 
-    value_fn: Callable[[FlairState], bool | None]
-    set_fn: Callable[[FlairDevice, bool], Coroutine[Any, Any, None]]
-    state_field: str
-    """The FlairState field that value_fn reads."""
+    setting: Setting
 
 
 # Installer settings, so they start disabled.
@@ -33,18 +29,14 @@ SWITCHES: tuple[BrinkFlairSwitchDescription, ...] = (
         translation_key="imbalance_allowed",
         entity_category=EntityCategory.CONFIG,
         entity_registry_enabled_default=False,
-        value_fn=lambda state: state.imbalance_allowed,
-        set_fn=lambda device, on: device.async_set_imbalance_allowed(on),
-        state_field="imbalance_allowed",
+        setting=IMBALANCE_ALLOWED,
     ),
     BrinkFlairSwitchDescription(
         key="geo_heat_exchanger",
         translation_key="geo_heat_exchanger",
         entity_category=EntityCategory.CONFIG,
         entity_registry_enabled_default=False,
-        value_fn=lambda state: state.geo_heat_exchanger,
-        set_fn=lambda device, on: device.async_set_geo_heat_exchanger(on),
-        state_field="geo_heat_exchanger",
+        setting=GEO_HEAT_EXCHANGER,
     ),
 )
 
@@ -75,18 +67,16 @@ class BrinkFlairSwitch(BrinkFlairEntity, SwitchEntity):
         super().__init__(coordinator, description.key)
         self.entity_description = description
 
-    @property
-    def available(self) -> bool:
-        """Unavailable when the unit does not serve the setting."""
+    def _has_value(self) -> bool:
         return (
-            super().available
-            and self.entity_description.value_fn(self.coordinator.data) is not None
+            setting_value(self.coordinator.data, self.entity_description.setting)
+            is not None
         )
 
     @property
     def is_on(self) -> bool | None:
         """The current state."""
-        return self.entity_description.value_fn(self.coordinator.data)
+        return setting_value(self.coordinator.data, self.entity_description.setting)
 
     async def async_turn_on(self, **kwargs: Any) -> None:
         """Turn the setting on."""
@@ -98,6 +88,7 @@ class BrinkFlairSwitch(BrinkFlairEntity, SwitchEntity):
 
     async def _async_set(self, on: bool) -> None:
         await self._async_write(
-            self.entity_description.set_fn(self.coordinator.device, on),
-            **{self.entity_description.state_field: on},
+            self.coordinator.device.async_set_setting(
+                self.entity_description.setting, on
+            )
         )

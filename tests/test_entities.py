@@ -48,7 +48,7 @@ from pytest_homeassistant_custom_component.common import (
 from custom_components.brink_flair.diagnostics import (
     async_get_config_entry_diagnostics,
 )
-from custom_components.brink_flair.flair import FlairDevice
+from custom_components.brink_flair.flair import FlairDevice, FlairState
 
 pytestmark = pytest.mark.usefixtures("init_integration")
 
@@ -164,18 +164,28 @@ async def test_speed_when_already_in_control(
     assert patch_modbus.holding[8001] == 1
 
 
-async def test_fan_preset_shown_before_unit_confirms(
+async def test_unit_read_back_straight_after_write(
     hass: HomeAssistant, patch_modbus: MockModbusUnit
 ) -> None:
-    """A chosen level shows straight away, before the unit has answered."""
+    """A change is read back from the unit at once, not at the next poll."""
     release = asyncio.Event()
     send = FlairDevice._write
+    update = FlairDevice.async_update
+    reads = 0
 
     async def held_write(self: FlairDevice, address: int, value: int) -> None:
         await release.wait()
         await send(self, address, value)
 
-    with patch.object(FlairDevice, "_write", held_write):
+    async def counted_update(self: FlairDevice) -> FlairState:
+        nonlocal reads
+        reads += 1
+        return await update(self)
+
+    with (
+        patch.object(FlairDevice, "_write", held_write),
+        patch.object(FlairDevice, "async_update", counted_update),
+    ):
         call = asyncio.create_task(
             _call(
                 hass,
@@ -184,20 +194,22 @@ async def test_fan_preset_shown_before_unit_confirms(
                 {ATTR_ENTITY_ID: FAN, ATTR_PERCENTAGE: 100},
             )
         )
-        async with asyncio.timeout(2):
-            while hass.states.get(FAN).attributes[ATTR_PERCENTAGE] != 100:
-                await asyncio.sleep(0.01)
+        await asyncio.sleep(0.05)
+        # Nothing is shown before the unit has confirmed the write.
+        assert hass.states.get(FAN).attributes[ATTR_PERCENTAGE] == 75
+        assert reads == 0
         assert 8001 not in patch_modbus.holding
 
         release.set()
         await call
     assert patch_modbus.holding[8001] == 3
+    assert reads == 1
 
 
 async def test_failed_write_restores_shown_state(
     hass: HomeAssistant, patch_modbus: MockModbusUnit
 ) -> None:
-    """A change the unit rejects is taken back out of the shown state."""
+    """A change the unit rejects leaves the state as it was."""
     patch_modbus.fail_write(8001, ModbusTimeoutError("no answer"))
     with pytest.raises(HomeAssistantError):
         await _call(

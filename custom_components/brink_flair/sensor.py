@@ -22,21 +22,21 @@ from homeassistant.const import (
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_platform import AddConfigEntryEntitiesCallback
 
+from .const import UNIT_AIRFLOW
 from .coordinator import BrinkFlairConfigEntry, BrinkFlairCoordinator
 from .entity import BrinkFlairEntity
 from .flair import ActiveFunction, BypassState, FlairState, FrostStatus
+from .helpers import option_name
 
 PARALLEL_UPDATES = 0
 
-UNIT_AIRFLOW = "m³/h"
-
 
 def _enum_options(enum: type[IntEnum]) -> list[str]:
-    return [member.name.lower() for member in enum]
+    return [option_name(member) for member in enum]
 
 
 def _enum_value(enum: type[IntEnum], value: int) -> str | None:
-    return enum(value).name.lower() if value in iter(enum) else None
+    return option_name(enum(value)) if value in iter(enum) else None
 
 
 @dataclass(frozen=True, kw_only=True)
@@ -170,7 +170,7 @@ SENSORS: tuple[BrinkFlairSensorDescription, ...] = (
         translation_key="bypass",
         device_class=SensorDeviceClass.ENUM,
         options=_enum_options(BypassState),
-        value_fn=lambda state: state.bypass_state.name.lower(),
+        value_fn=lambda state: option_name(state.bypass_state),
     ),
     BrinkFlairSensorDescription(
         key="active_function",

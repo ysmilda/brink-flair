@@ -7,11 +7,12 @@ from homeassistant.helpers.entity_platform import AddConfigEntryEntitiesCallback
 
 from .coordinator import BrinkFlairConfigEntry, BrinkFlairCoordinator
 from .entity import BrinkFlairEntity
-from .flair import BypassMode
+from .flair import BYPASS_MODE, BypassMode
+from .helpers import option_name
 
 PARALLEL_UPDATES = 1
 
-OPTIONS = {mode.name.lower(): mode for mode in BypassMode}
+OPTIONS = {option_name(mode): mode for mode in BypassMode}
 
 
 async def async_setup_entry(
@@ -38,12 +39,11 @@ class BrinkFlairBypassModeSelect(BrinkFlairEntity, SelectEntity):
     def current_option(self) -> str | None:
         """The current bypass mode."""
         mode = self.coordinator.data.bypass_mode
-        return BypassMode(mode).name.lower() if mode in iter(BypassMode) else None
+        return option_name(BypassMode(mode)) if mode in iter(BypassMode) else None
 
     async def async_select_option(self, option: str) -> None:
         """Set the bypass mode."""
         mode = OPTIONS[option]
         await self._async_write(
-            self.coordinator.device.async_set_bypass_mode(mode),
-            bypass_mode=int(mode),
+            self.coordinator.device.async_set_setting(BYPASS_MODE, mode)
         )

@@ -4,18 +4,16 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 import logging
+from typing import Any, Literal
 
 from modbus_connection import IllegalDataAddressError, ModbusUnit
 
 from . import registers as r
 from .models import UNKNOWN_MODEL, FlairModel, model_for_appliance_type
+from .settings import SETTING_GROUPS, signed as _signed, span
+from .writes import FlairWrites
 
 _LOGGER = logging.getLogger(__name__)
-
-
-def _signed(value: int) -> int:
-    """Interpret a 16-bit register as a signed number."""
-    return value - 0x10000 if value & 0x8000 else value
 
 
 def _bcd(value: int) -> str:
@@ -135,6 +133,13 @@ class FlairState:
         )
 
     @property
+    def preheater_active(self) -> bool | None:
+        """Whether the preheater is running, or None when the unit does not report it."""
+        if self.preheater_status is None:
+            return None
+        return self.preheater_status == 2
+
+    @property
     def frost_protection_active(self) -> bool:
         """Whether frost protection is acting on the airflow or the heater."""
         return self.frost_status in r.FROST_ACTIVE_STATES
@@ -146,8 +151,20 @@ class FlairState:
             return None
         return max(0, self.filter_interval_days - self.filter_hours // 24)
 
+    def flow_preset_bounds(
+        self, level: r.VentilationLevel, max_flow: int
+    ) -> tuple[int, int]:
+        """Return the lowest and highest airflow a level may take, keeping levels in order."""
+        lower = self.flow_presets[level - 1] if level > r.VentilationLevel.AWAY else 0
+        upper = (
+            self.flow_presets[level + 1]
+            if level < r.VentilationLevel.HIGH
+            else max_flow
+        )
+        return lower, upper
 
-class FlairDevice:
+
+class FlairDevice(FlairWrites):
     """A Brink Flair reached through a Modbus unit."""
 
     def __init__(self, unit: ModbusUnit) -> None:
@@ -174,45 +191,32 @@ class FlairDevice:
             return UNKNOWN_MODEL
         return self.identity.model
 
-    async def _read_input(self, address: int, count: int) -> list[int]:
-        return await self._unit.read_input_registers(address + r.ADDRESS_OFFSET, count)
-
-    async def _read_optional_input(self, address: int, count: int) -> list[int] | None:
-        """Read input registers that not every unit or firmware serves."""
-        return await self._read_optional("input", address, count)
-
-    async def _read_optional_holding(
-        self, address: int, count: int
-    ) -> list[int] | None:
-        """Read holding registers that not every unit or firmware serves."""
-        return await self._read_optional("holding", address, count)
+    async def _read(
+        self, kind: Literal["input", "holding"], address: int, count: int
+    ) -> list[int]:
+        address += r.ADDRESS_OFFSET
+        if kind == "input":
+            return await self._unit.read_input_registers(address, count)
+        return await self._unit.read_holding_registers(address, count)
 
     async def _read_optional(
-        self, kind: str, address: int, count: int
+        self, kind: Literal["input", "holding"], address: int, count: int
     ) -> list[int] | None:
+        """Read registers that not every unit or firmware serves."""
         if (kind, address) in self._unsupported:
             return None
-        read = self._read_input if kind == "input" else self._read_holding
         try:
-            return await read(address, count)
+            return await self._read(kind, address, count)
         except IllegalDataAddressError:
             _LOGGER.debug("%s register %s is not served by this unit", kind, address)
             self._unsupported.add((kind, address))
             return None
 
-    async def _read_holding(self, address: int, count: int) -> list[int]:
-        return await self._unit.read_holding_registers(
-            address + r.ADDRESS_OFFSET, count
-        )
-
-    async def _write(self, address: int, value: int) -> None:
-        await self._unit.write_register(address + r.ADDRESS_OFFSET, int(value))
-
     async def async_read_identity(self) -> FlairIdentity:
         """Read the serial number, versions and appliance type."""
         # 4006 to 4009 are not served, so these are two reads.
-        versions = await self._read_input(r.IR_SOFTWARE_VERSION, 5)
-        serial_regs = await self._read_input(r.IR_SERIAL_NUMBER, 3)
+        versions = await self._read("input", r.IR_SOFTWARE_VERSION, 5)
+        serial_regs = await self._read("input", r.IR_SERIAL_NUMBER, 3)
         sw_type_major, sw_minor_fix, sw_build, hardware, appliance_type = versions
         serial = "".join(_bcd(value) for value in serial_regs)
         software = (
@@ -230,20 +234,17 @@ class FlairDevice:
 
     async def async_update(self) -> FlairState:
         """Read all readings and settings."""
-        status = await self._read_input(r.IR_ACTIVE_FUNCTION, 5)
-        supply = await self._read_input(r.IR_SUPPLY_FAN_STATUS, 8)
-        exhaust = await self._read_input(r.IR_EXHAUST_FAN_STATUS, 8)
-        (bypass_status,) = await self._read_input(r.IR_BYPASS_STATUS, 1)
-        frost = await self._read_input(r.IR_FROST_STATUS, 2)
-        sensors = await self._read_input(r.IR_SWITCH_POSITION, 4)
-        (filter_status,) = await self._read_input(r.IR_FILTER_STATUS, 1)
-        operating = await self._read_optional_input(r.IR_OPERATING_HOURS, 2)
-        filter_hours = await self._read_optional_input(r.IR_FILTER_HOURS, 1)
-        presets = await self._read_holding(r.HR_FLOW_PRESETS, 4)
-        bypass = await self._read_holding(r.HR_BYPASS_MODE, 4)
-        (filter_days,) = await self._read_holding(r.HR_FILTER_DAYS, 1)
-        control = await self._read_holding(r.RC_CONTROL, 4)
-        installer = await self._read_installer_settings()
+        status = await self._read("input", r.IR_ACTIVE_FUNCTION, 5)
+        supply = await self._read("input", r.IR_SUPPLY_FAN_STATUS, 8)
+        exhaust = await self._read("input", r.IR_EXHAUST_FAN_STATUS, 8)
+        (bypass_status,) = await self._read("input", r.IR_BYPASS_STATUS, 1)
+        frost = await self._read("input", r.IR_FROST_STATUS, 2)
+        sensors = await self._read("input", r.IR_SWITCH_POSITION, 4)
+        (filter_status,) = await self._read("input", r.IR_FILTER_STATUS, 1)
+        operating = await self._read_optional("input", r.IR_OPERATING_HOURS, 2)
+        filter_hours = await self._read_optional("input", r.IR_FILTER_HOURS, 1)
+        control = await self._read("holding", r.RC_CONTROL, 4)
+        settings = await self._read_settings()
 
         control_mode = control[0]
         if (
@@ -290,39 +291,37 @@ class FlairDevice:
             filter_dirty=filter_status == 1,
             operating_hours=_u32(*operating) if operating else None,
             filter_hours=filter_hours[0] if filter_hours else None,
-            filter_interval_days=filter_days,
-            flow_presets=(presets[0], presets[1], presets[2], presets[3]),
-            bypass_mode=bypass[0],
-            bypass_temp_indoor=bypass[1] / 10,
-            bypass_temp_outdoor=bypass[2] / 10,
-            bypass_hysteresis=bypass[3] / 10,
             rht_humidity=sensors[3],
             **await self._read_options(),
-            **installer,
+            **settings,
         )
         return state
 
-    async def _read_installer_settings(self) -> dict:
-        """Read the imbalance and geo heat exchanger settings, where served."""
-        values: dict = {}
-        if allowed := await self._read_optional_holding(r.HR_IMBALANCE_ALLOWED, 1):
-            values["imbalance_allowed"] = allowed[0] == 1
-        if offsets := await self._read_optional_holding(r.HR_SUPPLY_IMBALANCE, 2):
-            values["supply_imbalance"] = _signed(offsets[0])
-            values["exhaust_imbalance"] = _signed(offsets[1])
-        if geo := await self._read_optional_holding(r.HR_GEO_HEAT_EXCHANGER, 3):
-            values["geo_heat_exchanger"] = geo[0] == 1
-            values["geo_min_temp"] = _signed(geo[1]) / 10
-            values["geo_max_temp"] = _signed(geo[2]) / 10
+    async def _read_settings(self) -> dict[str, Any]:
+        """Read the settings table, one run of registers at a time."""
+        values: dict[str, Any] = {}
+        for group in SETTING_GROUPS:
+            start, count = span(group)
+            if group[0].optional:
+                registers = await self._read_optional("holding", start, count)
+            else:
+                registers = await self._read("holding", start, count)
+            if registers is None:
+                continue
+            for setting in group:
+                offset = setting.address - start
+                values[setting.field] = setting.decode(
+                    registers[offset : offset + setting.count]
+                )
         return values
 
-    async def _read_options(self) -> dict:
+    async def _read_options(self) -> dict[str, Any]:
         """Read the registers of optional parts, where served."""
-        values: dict = {}
-        if heater := await self._read_optional_input(r.IR_PREHEATER_STATUS, 2):
+        values: dict[str, Any] = {}
+        if heater := await self._read_optional("input", r.IR_PREHEATER_STATUS, 2):
             values["preheater_status"] = heater[0]
             values["preheater_capacity"] = heater[1]
-        if co2 := await self._read_optional_input(r.IR_CO2_SENSORS, 8):
+        if co2 := await self._read_optional("input", r.IR_CO2_SENSORS, 8):
             # Only a running sensor has a valid reading. An absent sensor
             # reports an error status.
             values["co2"] = {
@@ -335,7 +334,7 @@ class FlairDevice:
     async def _apply_level(self, level: r.VentilationLevel) -> None:
         # A Flair 300 rejects a write of 8000 that does not change it
         # (Illegal Data Value), so only switch it when it is not set yet.
-        (control_mode,) = await self._read_holding(r.RC_CONTROL, 1)
+        (control_mode,) = await self._read("holding", r.RC_CONTROL, 1)
         if control_mode != r.ControlMode.SWITCH:
             await self._write(r.RC_CONTROL, r.ControlMode.SWITCH)
         await self._write(r.RC_SWITCH_POSITION, level)
@@ -344,59 +343,3 @@ class FlairDevice:
         """Take over control and set the ventilation level."""
         await self._apply_level(level)
         self._requested_level = level
-
-    async def async_set_standby(self, standby: bool) -> None:
-        """Put the unit in standby, or wake it."""
-        await self._write(r.RC_STANDBY, 1 if standby else 2)
-
-    async def async_set_flow_preset(self, level: r.VentilationLevel, flow: int) -> None:
-        """Set the airflow in m3/h for a ventilation level."""
-        await self._write(r.HR_FLOW_PRESETS + level, flow)
-
-    async def async_set_bypass_mode(self, mode: r.BypassMode) -> None:
-        """Set the bypass to automatic, closed or open."""
-        await self._write(r.HR_BYPASS_MODE, mode)
-
-    async def async_set_bypass_temp_indoor(self, value: float) -> None:
-        """Set the indoor temperature above which the bypass may open."""
-        await self._write(r.HR_BYPASS_TEMP_INDOOR, round(value * 10))
-
-    async def async_set_bypass_temp_outdoor(self, value: float) -> None:
-        """Set the outdoor temperature above which the bypass may open."""
-        await self._write(r.HR_BYPASS_TEMP_OUTDOOR, round(value * 10))
-
-    async def async_set_bypass_hysteresis(self, value: float) -> None:
-        """Set the bypass hysteresis."""
-        await self._write(r.HR_BYPASS_HYSTERESIS, round(value * 10))
-
-    async def async_set_filter_interval(self, days: int) -> None:
-        """Set the number of days between filter warnings."""
-        await self._write(r.HR_FILTER_DAYS, days)
-
-    async def async_set_imbalance_allowed(self, allowed: bool) -> None:
-        """Allow or forbid a difference between supply and exhaust airflow."""
-        await self._write(r.HR_IMBALANCE_ALLOWED, 1 if allowed else 0)
-
-    async def async_set_supply_imbalance(self, percent: int) -> None:
-        """Set the supply airflow offset in %."""
-        await self._write(r.HR_SUPPLY_IMBALANCE, percent & 0xFFFF)
-
-    async def async_set_exhaust_imbalance(self, percent: int) -> None:
-        """Set the exhaust airflow offset in %."""
-        await self._write(r.HR_EXHAUST_IMBALANCE, percent & 0xFFFF)
-
-    async def async_set_geo_heat_exchanger(self, enabled: bool) -> None:
-        """Turn the geo heat exchanger control on or off."""
-        await self._write(r.HR_GEO_HEAT_EXCHANGER, 1 if enabled else 0)
-
-    async def async_set_geo_min_temp(self, value: float) -> None:
-        """Set the outdoor temperature below which the geo exchanger is used."""
-        await self._write(r.HR_GEO_MIN_TEMP, round(value * 10) & 0xFFFF)
-
-    async def async_set_geo_max_temp(self, value: float) -> None:
-        """Set the outdoor temperature above which the geo exchanger is used."""
-        await self._write(r.HR_GEO_MAX_TEMP, round(value * 10) & 0xFFFF)
-
-    async def async_reset_filter(self) -> None:
-        """Reset the filter counter after a filter change."""
-        await self._write(r.RC_FILTER_RESET, 1)

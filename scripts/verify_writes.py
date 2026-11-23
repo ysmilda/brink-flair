@@ -21,7 +21,22 @@ from modbus_connection.tmodbus import ModbusConnection
 
 sys.path.insert(0, str(Path(__file__).parents[1] / "custom_components" / "brink_flair"))
 
-from flair import FlairDevice, FlairState
+from flair import (
+    BYPASS_HYSTERESIS,
+    BYPASS_MODE,
+    BYPASS_TEMP_INDOOR,
+    BYPASS_TEMP_OUTDOOR,
+    EXHAUST_IMBALANCE,
+    FILTER_INTERVAL,
+    FLOW_PRESETS,
+    GEO_HEAT_EXCHANGER,
+    GEO_MAX_TEMP,
+    GEO_MIN_TEMP,
+    IMBALANCE_ALLOWED,
+    SUPPLY_IMBALANCE,
+    FlairDevice,
+    FlairState,
+)
 from flair.registers import BypassMode, VentilationLevel
 
 SETTLE = 3  # seconds before reading back
@@ -113,13 +128,15 @@ async def main() -> None:
             await check(
                 f"flow preset {lvl.name.lower()}",
                 lambda s, lvl=lvl: s.flow_presets[lvl],
-                lambda v, lvl=lvl: device.async_set_flow_preset(lvl, v),
+                lambda v, lvl=lvl: device.async_set_setting(
+                    FLOW_PRESETS, v, offset=lvl
+                ),
                 int(_step(presets[lvl], 5, low, high)),
             )
         await check(
             "bypass mode",
             lambda s: BypassMode(s.bypass_mode),
-            device.async_set_bypass_mode,
+            lambda v: device.async_set_setting(BYPASS_MODE, v),
             BypassMode.CLOSED
             if state.bypass_mode != BypassMode.CLOSED
             else BypassMode.AUTOMATIC,
@@ -127,39 +144,43 @@ async def main() -> None:
         await check(
             "bypass indoor temperature",
             lambda s: s.bypass_temp_indoor,
-            device.async_set_bypass_temp_indoor,
+            lambda v: device.async_set_setting(BYPASS_TEMP_INDOOR, v),
             _step(state.bypass_temp_indoor, 0.5, 15, 35),
         )
         await check(
             "bypass outdoor temperature",
             lambda s: s.bypass_temp_outdoor,
-            device.async_set_bypass_temp_outdoor,
+            lambda v: device.async_set_setting(BYPASS_TEMP_OUTDOOR, v),
             _step(state.bypass_temp_outdoor, 0.5, 7, 15),
         )
         await check(
             "bypass hysteresis",
             lambda s: s.bypass_hysteresis,
-            device.async_set_bypass_hysteresis,
+            lambda v: device.async_set_setting(BYPASS_HYSTERESIS, v),
             _step(state.bypass_hysteresis, 0.5, 0, 5),
         )
         await check(
             "filter interval",
             lambda s: s.filter_interval_days,
-            device.async_set_filter_interval,
+            lambda v: device.async_set_setting(FILTER_INTERVAL, v),
             int(_step(state.filter_interval_days, 1, 1, 365)),
         )
         await check(
             "imbalance allowed",
             lambda s: s.imbalance_allowed,
-            device.async_set_imbalance_allowed,
+            lambda v: device.async_set_setting(IMBALANCE_ALLOWED, v),
             not state.imbalance_allowed,
         )
         for name, attr, setter in (
-            ("supply imbalance", "supply_imbalance", device.async_set_supply_imbalance),
+            (
+                "supply imbalance",
+                "supply_imbalance",
+                lambda v: device.async_set_setting(SUPPLY_IMBALANCE, v),
+            ),
             (
                 "exhaust imbalance",
                 "exhaust_imbalance",
-                device.async_set_exhaust_imbalance,
+                lambda v: device.async_set_setting(EXHAUST_IMBALANCE, v),
             ),
         ):
             value = getattr(state, attr)
@@ -172,13 +193,13 @@ async def main() -> None:
         await check(
             "geo heat exchanger",
             lambda s: s.geo_heat_exchanger,
-            device.async_set_geo_heat_exchanger,
+            lambda v: device.async_set_setting(GEO_HEAT_EXCHANGER, v),
             not state.geo_heat_exchanger,
         )
         await check(
             "geo minimum temperature",
             lambda s: s.geo_min_temp,
-            device.async_set_geo_min_temp,
+            lambda v: device.async_set_setting(GEO_MIN_TEMP, v),
             None
             if state.geo_min_temp is None
             else _step(state.geo_min_temp, 0.5, 0, 10),
@@ -186,7 +207,7 @@ async def main() -> None:
         await check(
             "geo maximum temperature",
             lambda s: s.geo_max_temp,
-            device.async_set_geo_max_temp,
+            lambda v: device.async_set_setting(GEO_MAX_TEMP, v),
             None
             if state.geo_max_temp is None
             else _step(state.geo_max_temp, 0.5, 15, 40),

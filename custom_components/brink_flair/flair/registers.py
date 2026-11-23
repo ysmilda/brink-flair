@@ -9,7 +9,6 @@ from enum import IntEnum
 # Factory serial settings (installer menu step 14).
 DEFAULT_UNIT_ID = 20
 DEFAULT_BAUDRATE = 19200
-DEFAULT_PARITY = "E"
 DEFAULT_STOPBITS = 1
 
 # The document lists addresses as they go on the wire, confirmed on a Flair 300.

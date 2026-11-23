@@ -13,7 +13,7 @@ from homeassistant.util.percentage import (
 
 from .coordinator import BrinkFlairConfigEntry, BrinkFlairCoordinator
 from .entity import BrinkFlairEntity
-from .flair import ActiveFunction, ControlMode, VentilationLevel
+from .flair import ActiveFunction, VentilationLevel
 
 PARALLEL_UPDATES = 1
 
@@ -73,12 +73,8 @@ class BrinkFlairFan(BrinkFlairEntity, FanEntity):
     async def _async_set_level(self, level: VentilationLevel) -> None:
         device = self.coordinator.device
         if self.coordinator.data.standby:
-            await self._async_write(device.async_set_standby(False), standby=False)
-        await self._async_write(
-            device.async_set_level(level),
-            ventilation_mode=int(level),
-            control_mode=ControlMode.SWITCH,
-        )
+            await self._async_write(device.async_set_standby(False))
+        await self._async_write(device.async_set_level(level))
 
     async def async_turn_on(
         self,
@@ -90,12 +86,8 @@ class BrinkFlairFan(BrinkFlairEntity, FanEntity):
         if percentage is not None and percentage > 0:
             await self.async_set_percentage(percentage)
         else:
-            await self._async_write(
-                self.coordinator.device.async_set_standby(False), standby=False
-            )
+            await self._async_write(self.coordinator.device.async_set_standby(False))
 
     async def async_turn_off(self, **kwargs: Any) -> None:
         """Put the unit in standby."""
-        await self._async_write(
-            self.coordinator.device.async_set_standby(True), standby=True
-        )
+        await self._async_write(self.coordinator.device.async_set_standby(True))

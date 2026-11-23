@@ -1,8 +1,6 @@
 """Airflow, bypass and filter settings for the Brink Flair integration."""
 
-from collections.abc import Callable, Coroutine
 from dataclasses import dataclass
-from typing import Any
 
 from homeassistant.components.number import (
     NumberDeviceClass,
@@ -20,24 +18,33 @@ from homeassistant.core import HomeAssistant
 from homeassistant.exceptions import ServiceValidationError
 from homeassistant.helpers.entity_platform import AddConfigEntryEntitiesCallback
 
-from .const import DOMAIN
+from .const import DOMAIN, UNIT_AIRFLOW
 from .coordinator import BrinkFlairConfigEntry, BrinkFlairCoordinator
 from .entity import BrinkFlairEntity
-from .flair import FlairDevice, FlairState, VentilationLevel
+from .flair import (
+    BYPASS_HYSTERESIS,
+    BYPASS_TEMP_INDOOR,
+    BYPASS_TEMP_OUTDOOR,
+    EXHAUST_IMBALANCE,
+    FILTER_INTERVAL,
+    FLOW_PRESETS,
+    GEO_MAX_TEMP,
+    GEO_MIN_TEMP,
+    SUPPLY_IMBALANCE,
+    Setting,
+    VentilationLevel,
+    setting_value,
+)
+from .helpers import option_name
 
 PARALLEL_UPDATES = 1
-
-UNIT_AIRFLOW = "m³/h"
 
 
 @dataclass(frozen=True, kw_only=True)
 class BrinkFlairNumberDescription(NumberEntityDescription):
     """Describes a Brink Flair setting."""
 
-    value_fn: Callable[[FlairState], float | None]
-    set_fn: Callable[[FlairDevice, float], Coroutine[Any, Any, None]]
-    state_field: str
-    """The FlairState field that value_fn reads."""
+    setting: Setting
 
 
 SETTINGS: tuple[BrinkFlairNumberDescription, ...] = (
@@ -49,9 +56,7 @@ SETTINGS: tuple[BrinkFlairNumberDescription, ...] = (
         native_min_value=15,
         native_max_value=35,
         native_step=0.5,
-        value_fn=lambda state: state.bypass_temp_indoor,
-        set_fn=lambda device, value: device.async_set_bypass_temp_indoor(value),
-        state_field="bypass_temp_indoor",
+        setting=BYPASS_TEMP_INDOOR,
     ),
     BrinkFlairNumberDescription(
         key="bypass_temp_outdoor",
@@ -61,9 +66,7 @@ SETTINGS: tuple[BrinkFlairNumberDescription, ...] = (
         native_min_value=7,
         native_max_value=15,
         native_step=0.5,
-        value_fn=lambda state: state.bypass_temp_outdoor,
-        set_fn=lambda device, value: device.async_set_bypass_temp_outdoor(value),
-        state_field="bypass_temp_outdoor",
+        setting=BYPASS_TEMP_OUTDOOR,
     ),
     BrinkFlairNumberDescription(
         key="bypass_hysteresis",
@@ -74,9 +77,7 @@ SETTINGS: tuple[BrinkFlairNumberDescription, ...] = (
         native_max_value=5,
         native_step=0.5,
         entity_registry_enabled_default=False,
-        value_fn=lambda state: state.bypass_hysteresis,
-        set_fn=lambda device, value: device.async_set_bypass_hysteresis(value),
-        state_field="bypass_hysteresis",
+        setting=BYPASS_HYSTERESIS,
     ),
     BrinkFlairNumberDescription(
         key="filter_interval",
@@ -87,9 +88,7 @@ SETTINGS: tuple[BrinkFlairNumberDescription, ...] = (
         native_max_value=365,
         native_step=1,
         mode=NumberMode.BOX,
-        value_fn=lambda state: state.filter_interval_days,
-        set_fn=lambda device, value: device.async_set_filter_interval(int(value)),
-        state_field="filter_interval_days",
+        setting=FILTER_INTERVAL,
     ),
     # Installer settings, so they start disabled.
     BrinkFlairNumberDescription(
@@ -101,9 +100,7 @@ SETTINGS: tuple[BrinkFlairNumberDescription, ...] = (
         native_step=1,
         mode=NumberMode.BOX,
         entity_registry_enabled_default=False,
-        value_fn=lambda state: state.supply_imbalance,
-        set_fn=lambda device, value: device.async_set_supply_imbalance(int(value)),
-        state_field="supply_imbalance",
+        setting=SUPPLY_IMBALANCE,
     ),
     BrinkFlairNumberDescription(
         key="exhaust_imbalance",
@@ -114,9 +111,7 @@ SETTINGS: tuple[BrinkFlairNumberDescription, ...] = (
         native_step=1,
         mode=NumberMode.BOX,
         entity_registry_enabled_default=False,
-        value_fn=lambda state: state.exhaust_imbalance,
-        set_fn=lambda device, value: device.async_set_exhaust_imbalance(int(value)),
-        state_field="exhaust_imbalance",
+        setting=EXHAUST_IMBALANCE,
     ),
     BrinkFlairNumberDescription(
         key="geo_min_temp",
@@ -127,9 +122,7 @@ SETTINGS: tuple[BrinkFlairNumberDescription, ...] = (
         native_max_value=10,
         native_step=0.5,
         entity_registry_enabled_default=False,
-        value_fn=lambda state: state.geo_min_temp,
-        set_fn=lambda device, value: device.async_set_geo_min_temp(value),
-        state_field="geo_min_temp",
+        setting=GEO_MIN_TEMP,
     ),
     BrinkFlairNumberDescription(
         key="geo_max_temp",
@@ -140,9 +133,7 @@ SETTINGS: tuple[BrinkFlairNumberDescription, ...] = (
         native_max_value=40,
         native_step=0.5,
         entity_registry_enabled_default=False,
-        value_fn=lambda state: state.geo_max_temp,
-        set_fn=lambda device, value: device.async_set_geo_max_temp(value),
-        state_field="geo_max_temp",
+        setting=GEO_MAX_TEMP,
     ),
 )
 
@@ -178,27 +169,23 @@ class BrinkFlairSettingNumber(BrinkFlairEntity, NumberEntity):
         super().__init__(coordinator, description.key)
         self.entity_description = description
 
-    @property
-    def available(self) -> bool:
-        """Unavailable when the unit does not serve the setting."""
+    def _has_value(self) -> bool:
         return (
-            super().available
-            and self.entity_description.value_fn(self.coordinator.data) is not None
+            setting_value(self.coordinator.data, self.entity_description.setting)
+            is not None
         )
 
     @property
     def native_value(self) -> float | None:
         """The current value."""
-        return self.entity_description.value_fn(self.coordinator.data)
+        return setting_value(self.coordinator.data, self.entity_description.setting)
 
     async def async_set_native_value(self, value: float) -> None:
         """Change the setting."""
-        field = self.entity_description.state_field
-        # Keep the field's type: whole-number settings are stored as int.
-        current = getattr(self.coordinator.data, field)
         await self._async_write(
-            self.entity_description.set_fn(self.coordinator.device, value),
-            **{field: type(current)(value)},
+            self.coordinator.device.async_set_setting(
+                self.entity_description.setting, value
+            )
         )
 
 
@@ -215,7 +202,7 @@ class BrinkFlairFlowPresetNumber(BrinkFlairEntity, NumberEntity):
         self, coordinator: BrinkFlairCoordinator, level: VentilationLevel
     ) -> None:
         """Initialize the preset."""
-        key = f"flow_preset_{level.name.lower()}"
+        key = f"flow_preset_{option_name(level)}"
         super().__init__(coordinator, key)
         self._level = level
         self._attr_translation_key = key
@@ -234,12 +221,8 @@ class BrinkFlairFlowPresetNumber(BrinkFlairEntity, NumberEntity):
     async def async_set_native_value(self, value: float) -> None:
         """Set the airflow for this level, keeping the levels in order."""
         flow = int(value)
-        presets = self.coordinator.data.flow_presets
-        lower = presets[self._level - 1] if self._level > 0 else 0
-        upper = (
-            presets[self._level + 1]
-            if self._level < VentilationLevel.HIGH
-            else self.native_max_value
+        lower, upper = self.coordinator.data.flow_preset_bounds(
+            self._level, self.coordinator.device.model.max_flow
         )
         if not lower <= flow <= upper:
             raise ServiceValidationError(
@@ -251,9 +234,8 @@ class BrinkFlairFlowPresetNumber(BrinkFlairEntity, NumberEntity):
                     "upper": str(upper),
                 },
             )
-        presets = list(presets)
-        presets[self._level] = flow
         await self._async_write(
-            self.coordinator.device.async_set_flow_preset(self._level, flow),
-            flow_presets=tuple(presets),
+            self.coordinator.device.async_set_setting(
+                FLOW_PRESETS, flow, offset=self._level
+            )
         )

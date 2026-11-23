@@ -5,11 +5,10 @@ from typing import override
 
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
-from homeassistant.helpers.device_registry import DeviceInfo
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
 from modbus_connection import ModbusError
 
-from .const import DOMAIN, MANUFACTURER, SCAN_INTERVAL
+from .const import DOMAIN, SCAN_INTERVAL
 from .flair import FlairDevice, FlairState
 
 _LOGGER = logging.getLogger(__name__)
@@ -38,23 +37,10 @@ class BrinkFlairCoordinator(DataUpdateCoordinator[FlairState]):
     @property
     def serial_number(self) -> str:
         """The unit's serial number, which is the config entry's unique ID."""
-        assert self.config_entry.unique_id is not None
+        if self.config_entry.unique_id is None:
+            msg = "The config entry has no unique ID"
+            raise RuntimeError(msg)
         return self.config_entry.unique_id
-
-    @property
-    def device_info(self) -> DeviceInfo:
-        """Describe the unit for the device registry."""
-        identity = self.device.identity
-        info = DeviceInfo(
-            identifiers={(DOMAIN, self.serial_number)},
-            manufacturer=MANUFACTURER,
-            model=self.device.model.name,
-            serial_number=self.serial_number,
-        )
-        if identity is not None:
-            info["sw_version"] = identity.software_version
-            info["hw_version"] = identity.hardware_version
-        return info
 
     @override
     async def _async_setup(self) -> None:
