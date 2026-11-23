@@ -154,6 +154,20 @@ async def test_fan_follows_unit_without_modbus_control(hass: HomeAssistant) -> N
     assert state.attributes[ATTR_PRESET_MODE] is None
 
 
+async def test_changes_in_a_row_show_at_once(
+    hass: HomeAssistant, patch_modbus: MockModbusUnit
+) -> None:
+    """A second change straight after the first is read back at once too."""
+    await _call(
+        hass,
+        FAN_DOMAIN,
+        SERVICE_SET_PERCENTAGE,
+        {ATTR_ENTITY_ID: FAN, ATTR_PERCENTAGE: 100},
+    )
+    await _call(hass, FAN_DOMAIN, SERVICE_TURN_OFF, {ATTR_ENTITY_ID: FAN})
+    assert hass.states.get(FAN).state == STATE_OFF
+
+
 async def test_fan_percentage_zero_turns_off(
     hass: HomeAssistant, patch_modbus: MockModbusUnit
 ) -> None:
@@ -279,6 +293,9 @@ async def test_fan_turn_on_with_speed(
     )
     assert patch_modbus.holding[8003] == 2
     assert patch_modbus.holding[8002] == 174
+    state = hass.states.get(FAN)
+    assert state.state == STATE_ON
+    assert state.attributes[ATTR_PERCENTAGE] == 50
 
 
 @pytest.mark.parametrize("mock_unit", [[1, 2, 0, 1]], indirect=True)

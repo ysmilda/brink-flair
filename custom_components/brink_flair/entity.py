@@ -56,4 +56,6 @@ class BrinkFlairEntity(CoordinatorEntity[BrinkFlairCoordinator]):
                 translation_key="write_failed",
                 translation_placeholders={"error": str(err)},
             ) from err
-        await self.coordinator.async_request_refresh()
+        # Not async_request_refresh: its debouncer holds a second change
+        # within 10 seconds of the last refresh back until that time is up.
+        await self.coordinator.async_refresh()

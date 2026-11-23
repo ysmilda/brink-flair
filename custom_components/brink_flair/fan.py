@@ -1,5 +1,6 @@
 """Ventilation control for the Brink Flair integration."""
 
+from collections.abc import Awaitable, Callable
 from typing import Any
 
 from homeassistant.components.fan import FanEntity, FanEntityFeature
@@ -109,19 +110,23 @@ class BrinkFlairFan(BrinkFlairEntity, FanEntity):
             await self.async_turn_off()
             return
         device = self.coordinator.device
-        await self._async_wake()
         flow = percentage_to_flow(device.model, percentage)
-        await self._async_write(device.async_set_flow(flow))
+        await self._async_write(self._async_wake_and(device.async_set_flow, flow))
 
     async def async_set_preset_mode(self, preset_mode: str) -> None:
         """Set one of the unit's ventilation levels."""
-        await self._async_wake()
         level = PRESET_LEVELS[preset_mode]
-        await self._async_write(self.coordinator.device.async_set_level(level))
+        device = self.coordinator.device
+        await self._async_write(self._async_wake_and(device.async_set_level, level))
 
-    async def _async_wake(self) -> None:
+    async def _async_wake_and[T](
+        self, write: Callable[[T], Awaitable[None]], value: T
+    ) -> None:
+        """Wake the unit if it is in standby, then make the write, as one change."""
+        device = self.coordinator.device
         if self.coordinator.data.standby:
-            await self._async_write(self.coordinator.device.async_set_standby(False))
+            await device.async_set_standby(False)
+        await write(value)
 
     async def async_turn_on(
         self,
