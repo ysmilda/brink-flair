@@ -48,6 +48,38 @@
           "reconfigure_tcp": "Modbus TCP gateway",
           "reconfigure_serial": "Serial RS-485 adapter"
         }
+      },
+      "reconfigure_tcp": {
+        "title": "Modbus TCP gateway",
+        "description": "Enter the address of the RS-485 to Modbus TCP gateway that is wired to the Flair.",
+        "data": {
+          "host": "Host",
+          "port": "Port",
+          "unit_id": "Modbus address"
+        },
+        "data_description": {
+          "host": "Hostname or IP address of the gateway.",
+          "port": "TCP port of the gateway, usually 502.",
+          "unit_id": "The Flair's Modbus slave address, set in installer menu step 14.2. The factory value is 20."
+        }
+      },
+      "reconfigure_serial": {
+        "title": "Serial RS-485 adapter",
+        "description": "Pick the RS-485 adapter that is wired to the Flair and enter the Flair's Modbus settings.",
+        "data": {
+          "device": "Serial port",
+          "baudrate": "Baud rate",
+          "parity": "Parity",
+          "stopbits": "Stop bits",
+          "unit_id": "Modbus address"
+        },
+        "data_description": {
+          "device": "The USB RS-485 adapter.",
+          "baudrate": "Installer menu step 14.3. The factory value is 19200.",
+          "parity": "Installer menu step 14.4. The factory value is even.",
+          "stopbits": "Usually 1.",
+          "unit_id": "The Flair's Modbus slave address, set in installer menu step 14.2. The factory value is 20."
+        }
       }
     },
     "error": {

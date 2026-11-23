@@ -48,6 +48,38 @@
           "reconfigure_tcp": "Modbus TCP-gateway",
           "reconfigure_serial": "Seriële RS-485-adapter"
         }
+      },
+      "reconfigure_tcp": {
+        "title": "Modbus TCP-gateway",
+        "description": "Vul het adres in van de RS-485 naar Modbus TCP-gateway die op de Flair is aangesloten.",
+        "data": {
+          "host": "Host",
+          "port": "Poort",
+          "unit_id": "Modbus-adres"
+        },
+        "data_description": {
+          "host": "Hostnaam of IP-adres van de gateway.",
+          "port": "TCP-poort van de gateway, meestal 502.",
+          "unit_id": "Het Modbus-slave-adres van de Flair, instelbaar in installateursmenu stap 14.2. De fabriekswaarde is 20."
+        }
+      },
+      "reconfigure_serial": {
+        "title": "Seriële RS-485-adapter",
+        "description": "Kies de RS-485-adapter die op de Flair is aangesloten en vul de Modbus-instellingen van de Flair in.",
+        "data": {
+          "device": "Seriële poort",
+          "baudrate": "Baudrate",
+          "parity": "Pariteit",
+          "stopbits": "Stopbits",
+          "unit_id": "Modbus-adres"
+        },
+        "data_description": {
+          "device": "De USB RS-485-adapter.",
+          "baudrate": "Installateursmenu stap 14.3. De fabriekswaarde is 19200.",
+          "parity": "Installateursmenu stap 14.4. De fabriekswaarde is even.",
+          "stopbits": "Meestal 1.",
+          "unit_id": "Het Modbus-slave-adres van de Flair, instelbaar in installateursmenu stap 14.2. De fabriekswaarde is 20."
+        }
       }
     },
     "error": {
