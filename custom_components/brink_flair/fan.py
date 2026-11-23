@@ -61,6 +61,14 @@ class BrinkFlairFan(BrinkFlairEntity, FanEntity):
         speed = VentilationLevel(data.ventilation_mode) + 1
         return ranged_value_to_percentage(SPEED_RANGE, speed)
 
+    @property
+    def extra_state_attributes(self) -> dict[str, int]:
+        """The airflow the unit measures, as a percentage of its max flow."""
+        data = self.coordinator.data
+        max_flow = self.coordinator.device.model.max_flow
+        actual = round(data.supply_flow * 100 / max_flow)
+        return {"actual_percentage": min(100, max(0, actual))}
+
     async def async_set_percentage(self, percentage: int) -> None:
         """Set a speed. Zero puts the unit in standby."""
         if percentage == 0:

@@ -44,7 +44,7 @@ To remove it, delete the entry from **Devices & services**.
 
 | Entity | Type | Notes |
 | --- | --- | --- |
-| Ventilation | fan | Speeds 1 to 4 (away, low, normal, high) and off. Off puts the unit in standby. |
+| Ventilation | fan | Speeds 1 to 4 (away, low, normal, high) and off. Off puts the unit in standby. The `actual_percentage` attribute shows the measured supply airflow as a percentage of the unit's max flow. |
 | Airflow away / low / normal / high | number | m³/h behind each level, kept in order |
 | Bypass mode | select | Automatic, closed or open |
 | Bypass indoor / outdoor temperature, hysteresis | number | The automatic bypass limits |
@@ -70,10 +70,10 @@ on its next poll and sends the level again.
 
 ## Data updates
 
-The unit is polled every 30 seconds. Changes made from Home Assistant show
-straight away, before the unit confirms them. If the unit rejects a change, the
-previous value comes back and an error is shown. Each change is then read back
-from the unit.
+The unit is polled every 30 seconds. After Home Assistant changes a setting, the
+integration reads the unit's state back straight away, so the new value shows
+once the unit has applied it. If the unit rejects a change, an error is shown and
+the value stays as it was.
 
 ## Examples
 

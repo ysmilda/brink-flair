@@ -98,6 +98,8 @@ async def test_fan_state(hass: HomeAssistant) -> None:
     assert state.state == STATE_ON
     assert state.attributes[ATTR_PERCENTAGE] == 75
     assert state.attributes[ATTR_PRESET_MODE] is None
+    # The unit measures 148 m3/h of supply air, out of 300 m3/h max.
+    assert state.attributes["actual_percentage"] == 49
 
 
 async def test_fan_speed(hass: HomeAssistant, patch_modbus: MockModbusUnit) -> None:
