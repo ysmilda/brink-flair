@@ -10,7 +10,7 @@ from homeassistant.components.fan import (
     ATTR_PERCENTAGE,
     ATTR_PRESET_MODE,
     DOMAIN as FAN_DOMAIN,
-    SERVICE_SET_PRESET_MODE,
+    SERVICE_SET_PERCENTAGE,
 )
 from homeassistant.components.number import (
     ATTR_VALUE,
@@ -93,25 +93,64 @@ async def test_optional_parts_absent(
 
 
 async def test_fan_state(hass: HomeAssistant) -> None:
-    """The fan shows the current level."""
+    """The fan shows the current speed: normal is speed 3 of 4."""
     state = hass.states.get(FAN)
     assert state.state == STATE_ON
-    assert state.attributes[ATTR_PRESET_MODE] == "normal"
-    assert ATTR_PERCENTAGE not in state.attributes
+    assert state.attributes[ATTR_PERCENTAGE] == 75
+    assert state.attributes[ATTR_PRESET_MODE] is None
 
 
-async def test_fan_preset(hass: HomeAssistant, patch_modbus: MockModbusUnit) -> None:
-    """A preset takes over control and sets the level."""
+async def test_fan_speed(hass: HomeAssistant, patch_modbus: MockModbusUnit) -> None:
+    """Speed 2 of 4 is the low level, at 50%."""
     await _call(
         hass,
         FAN_DOMAIN,
-        SERVICE_SET_PRESET_MODE,
-        {ATTR_ENTITY_ID: FAN, ATTR_PRESET_MODE: "high"},
+        SERVICE_SET_PERCENTAGE,
+        {ATTR_ENTITY_ID: FAN, ATTR_PERCENTAGE: 50},
+    )
+    assert patch_modbus.holding[8001] == 1
+
+
+async def test_fan_speed_rounds_up(
+    hass: HomeAssistant, patch_modbus: MockModbusUnit
+) -> None:
+    """A small percentage is the lowest speed, not off."""
+    await _call(
+        hass,
+        FAN_DOMAIN,
+        SERVICE_SET_PERCENTAGE,
+        {ATTR_ENTITY_ID: FAN, ATTR_PERCENTAGE: 1},
+    )
+    assert patch_modbus.holding[8001] == 0
+
+
+async def test_fan_percentage_zero_turns_off(
+    hass: HomeAssistant, patch_modbus: MockModbusUnit
+) -> None:
+    """Zero on the speed buttons puts the unit in standby."""
+    await _call(
+        hass,
+        FAN_DOMAIN,
+        SERVICE_SET_PERCENTAGE,
+        {ATTR_ENTITY_ID: FAN, ATTR_PERCENTAGE: 0},
+    )
+    assert patch_modbus.holding[8003] == 1
+
+
+async def test_fan_speed_takes_over_control(
+    hass: HomeAssistant, patch_modbus: MockModbusUnit
+) -> None:
+    """A speed takes over control and sets the level."""
+    await _call(
+        hass,
+        FAN_DOMAIN,
+        SERVICE_SET_PERCENTAGE,
+        {ATTR_ENTITY_ID: FAN, ATTR_PERCENTAGE: 100},
     )
     assert patch_modbus.holding[8001] == 3
 
 
-async def test_fan_preset_when_already_in_control(
+async def test_speed_when_already_in_control(
     hass: HomeAssistant, patch_modbus: MockModbusUnit
 ) -> None:
     """A Flair 300 rejects rewriting 8000, so it is left alone when already set."""
@@ -119,8 +158,8 @@ async def test_fan_preset_when_already_in_control(
     await _call(
         hass,
         FAN_DOMAIN,
-        SERVICE_SET_PRESET_MODE,
-        {ATTR_ENTITY_ID: FAN, ATTR_PRESET_MODE: "low"},
+        SERVICE_SET_PERCENTAGE,
+        {ATTR_ENTITY_ID: FAN, ATTR_PERCENTAGE: 50},
     )
     assert patch_modbus.holding[8001] == 1
 
@@ -141,12 +180,12 @@ async def test_fan_preset_shown_before_unit_confirms(
             _call(
                 hass,
                 FAN_DOMAIN,
-                SERVICE_SET_PRESET_MODE,
-                {ATTR_ENTITY_ID: FAN, ATTR_PRESET_MODE: "high"},
+                SERVICE_SET_PERCENTAGE,
+                {ATTR_ENTITY_ID: FAN, ATTR_PERCENTAGE: 100},
             )
         )
         async with asyncio.timeout(2):
-            while hass.states.get(FAN).attributes[ATTR_PRESET_MODE] != "high":
+            while hass.states.get(FAN).attributes[ATTR_PERCENTAGE] != 100:
                 await asyncio.sleep(0.01)
         assert 8001 not in patch_modbus.holding
 
@@ -164,23 +203,22 @@ async def test_failed_write_restores_shown_state(
         await _call(
             hass,
             FAN_DOMAIN,
-            SERVICE_SET_PRESET_MODE,
-            {ATTR_ENTITY_ID: FAN, ATTR_PRESET_MODE: "high"},
+            SERVICE_SET_PERCENTAGE,
+            {ATTR_ENTITY_ID: FAN, ATTR_PERCENTAGE: 100},
         )
-    assert hass.states.get(FAN).attributes[ATTR_PRESET_MODE] == "normal"
+    assert hass.states.get(FAN).attributes[ATTR_PERCENTAGE] == 75
 
 
-async def test_fan_turn_on_with_preset(
+async def test_fan_turn_on_with_speed(
     hass: HomeAssistant, patch_modbus: MockModbusUnit
 ) -> None:
-    """Turning on with a preset wakes the unit at that level."""
+    """Turning on with a speed wakes the unit at that level."""
     await _call(
         hass,
         FAN_DOMAIN,
         SERVICE_TURN_ON,
-        {ATTR_ENTITY_ID: FAN, ATTR_PRESET_MODE: "low"},
+        {ATTR_ENTITY_ID: FAN, ATTR_PERCENTAGE: 50},
     )
-    assert patch_modbus.holding[8003] == 2
     assert patch_modbus.holding[8001] == 1
 
 
@@ -206,8 +244,8 @@ async def test_level_restored_after_power_cut(
     await _call(
         hass,
         FAN_DOMAIN,
-        SERVICE_SET_PRESET_MODE,
-        {ATTR_ENTITY_ID: FAN, ATTR_PRESET_MODE: "low"},
+        SERVICE_SET_PERCENTAGE,
+        {ATTR_ENTITY_ID: FAN, ATTR_PERCENTAGE: 50},
     )
     patch_modbus.holding[8000] = 0
     patch_modbus.holding[8001] = 0

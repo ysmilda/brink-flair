@@ -88,20 +88,6 @@
         "name": "Filter resetten"
       }
     },
-    "fan": {
-      "ventilation": {
-        "state_attributes": {
-          "preset_mode": {
-            "state": {
-              "away": "Afwezig",
-              "low": "Laag",
-              "normal": "Normaal",
-              "high": "Hoog"
-            }
-          }
-        }
-      }
-    },
     "number": {
       "flow_preset_away": {
         "name": "Luchthoeveelheid afwezig"

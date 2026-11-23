@@ -1,10 +1,15 @@
 """Ventilation control for the Brink Flair integration."""
 
+import math
 from typing import Any
 
 from homeassistant.components.fan import FanEntity, FanEntityFeature
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_platform import AddConfigEntryEntitiesCallback
+from homeassistant.util.percentage import (
+    percentage_to_ranged_value,
+    ranged_value_to_percentage,
+)
 
 from .coordinator import BrinkFlairConfigEntry, BrinkFlairCoordinator
 from .entity import BrinkFlairEntity
@@ -12,14 +17,8 @@ from .flair import ActiveFunction, ControlMode, VentilationLevel
 
 PARALLEL_UPDATES = 1
 
-LEVELS = [
-    VentilationLevel.AWAY,
-    VentilationLevel.LOW,
-    VentilationLevel.NORMAL,
-    VentilationLevel.HIGH,
-]
-PRESET_FOR_LEVEL = {level: level.name.lower() for level in LEVELS}
-LEVEL_FOR_PRESET = {preset: level for level, preset in PRESET_FOR_LEVEL.items()}
+# Speeds 1 to 4 are the ventilation levels from away up to high. Off is standby.
+SPEED_RANGE = (1, 4)
 
 
 async def async_setup_entry(
@@ -32,13 +31,13 @@ async def async_setup_entry(
 
 
 class BrinkFlairFan(BrinkFlairEntity, FanEntity):
-    """The unit's ventilation, as a fan with a preset per level."""
+    """The unit's ventilation, as four speeds and off."""
 
     _attr_name = None
     _attr_translation_key = "ventilation"
-    _attr_preset_modes = list(PRESET_FOR_LEVEL.values())
+    _attr_speed_count = SPEED_RANGE[1]
     _attr_supported_features = (
-        FanEntityFeature.PRESET_MODE
+        FanEntityFeature.SET_SPEED
         | FanEntityFeature.TURN_ON
         | FanEntityFeature.TURN_OFF
     )
@@ -47,10 +46,6 @@ class BrinkFlairFan(BrinkFlairEntity, FanEntity):
         """Initialize the fan."""
         super().__init__(coordinator, "ventilation")
 
-    def _level(self) -> VentilationLevel | None:
-        mode = self.coordinator.data.ventilation_mode
-        return VentilationLevel(mode) if mode in iter(VentilationLevel) else None
-
     @property
     def is_on(self) -> bool:
         """Whether the unit is ventilating."""
@@ -58,15 +53,22 @@ class BrinkFlairFan(BrinkFlairEntity, FanEntity):
         return not data.standby and data.active_function != ActiveFunction.STANDBY
 
     @property
-    def preset_mode(self) -> str | None:
-        """The current level."""
-        if (level := self._level()) is None:
-            return None
-        return PRESET_FOR_LEVEL[level]
+    def percentage(self) -> int:
+        """The speed as a percentage, where 0 is off."""
+        data = self.coordinator.data
+        if data.standby or data.ventilation_mode not in iter(VentilationLevel):
+            return 0
+        speed = VentilationLevel(data.ventilation_mode) + 1
+        return ranged_value_to_percentage(SPEED_RANGE, speed)
 
-    async def async_set_preset_mode(self, preset_mode: str) -> None:
-        """Set a level, taking over control from the display and wall switch."""
-        await self._async_set_level(LEVEL_FOR_PRESET[preset_mode])
+    async def async_set_percentage(self, percentage: int) -> None:
+        """Set a speed. Zero puts the unit in standby."""
+        if percentage == 0:
+            await self.async_turn_off()
+            return
+        # Round up, so the lowest percentage is speed 1 and not off.
+        speed = math.ceil(percentage_to_ranged_value(SPEED_RANGE, percentage))
+        await self._async_set_level(VentilationLevel(speed - 1))
 
     async def _async_set_level(self, level: VentilationLevel) -> None:
         device = self.coordinator.device
@@ -84,12 +86,9 @@ class BrinkFlairFan(BrinkFlairEntity, FanEntity):
         preset_mode: str | None = None,
         **kwargs: Any,
     ) -> None:
-        """Wake the unit, optionally at a level."""
-        if preset_mode is not None:
-            await self._async_write(
-                self.coordinator.device.async_set_standby(False), standby=False
-            )
-            await self.async_set_preset_mode(preset_mode)
+        """Wake the unit, optionally at a speed."""
+        if percentage is not None and percentage > 0:
+            await self.async_set_percentage(percentage)
         else:
             await self._async_write(
                 self.coordinator.device.async_set_standby(False), standby=False

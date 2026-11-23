@@ -44,7 +44,7 @@ To remove it, delete the entry from **Devices & services**.
 
 | Entity | Type | Notes |
 | --- | --- | --- |
-| Ventilation | fan | Presets away, low, normal and high. Off puts the unit in standby. |
+| Ventilation | fan | Speeds 1 to 4 (away, low, normal, high) and off. Off puts the unit in standby. |
 | Airflow away / low / normal / high | number | m³/h behind each level, kept in order |
 | Bypass mode | select | Automatic, closed or open |
 | Bypass indoor / outdoor temperature, hysteresis | number | The automatic bypass limits |
@@ -60,7 +60,7 @@ To remove it, delete the entry from **Devices & services**.
 
 ### How control works
 
-Choosing a level takes over control through Modbus. While Home Assistant is in
+Choosing a speed takes over control through Modbus. While Home Assistant is in
 control, the unit's display and wall switch can't change the level. The
 integration can't hand control back, so once it has taken control, the display
 and wall switch stay locked out.

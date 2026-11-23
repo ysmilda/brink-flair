@@ -15,18 +15,7 @@
     },
     "fan": {
       "ventilation": {
-        "default": "mdi:hvac",
-        "state_attributes": {
-          "preset_mode": {
-            "default": "mdi:fan",
-            "state": {
-              "away": "mdi:bag-suitcase",
-              "low": "mdi:fan-speed-1",
-              "normal": "mdi:fan-speed-2",
-              "high": "mdi:fan-speed-3"
-            }
-          }
-        }
+        "default": "mdi:hvac"
       }
     },
     "number": {

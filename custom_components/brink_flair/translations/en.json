@@ -88,20 +88,6 @@
         "name": "Reset filter"
       }
     },
-    "fan": {
-      "ventilation": {
-        "state_attributes": {
-          "preset_mode": {
-            "state": {
-              "away": "Away",
-              "low": "Low",
-              "normal": "Normal",
-              "high": "High"
-            }
-          }
-        }
-      }
-    },
     "number": {
       "flow_preset_away": {
         "name": "Airflow away"
