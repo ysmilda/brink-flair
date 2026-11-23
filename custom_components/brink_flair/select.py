@@ -42,6 +42,8 @@ class BrinkFlairBypassModeSelect(BrinkFlairEntity, SelectEntity):
 
     async def async_select_option(self, option: str) -> None:
         """Set the bypass mode."""
+        mode = OPTIONS[option]
         await self._async_write(
-            self.coordinator.device.async_set_bypass_mode(OPTIONS[option])
+            self.coordinator.device.async_set_bypass_mode(mode),
+            bypass_mode=int(mode),
         )

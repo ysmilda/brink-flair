@@ -8,7 +8,7 @@ from homeassistant.helpers.entity_platform import AddConfigEntryEntitiesCallback
 
 from .coordinator import BrinkFlairConfigEntry, BrinkFlairCoordinator
 from .entity import BrinkFlairEntity
-from .flair import ActiveFunction, VentilationLevel
+from .flair import ActiveFunction, ControlMode, VentilationLevel
 
 PARALLEL_UPDATES = 1
 
@@ -71,8 +71,12 @@ class BrinkFlairFan(BrinkFlairEntity, FanEntity):
     async def _async_set_level(self, level: VentilationLevel) -> None:
         device = self.coordinator.device
         if self.coordinator.data.standby:
-            await self._async_write(device.async_set_standby(False))
-        await self._async_write(device.async_set_level(level))
+            await self._async_write(device.async_set_standby(False), standby=False)
+        await self._async_write(
+            device.async_set_level(level),
+            ventilation_mode=int(level),
+            control_mode=ControlMode.SWITCH,
+        )
 
     async def async_turn_on(
         self,
@@ -82,11 +86,17 @@ class BrinkFlairFan(BrinkFlairEntity, FanEntity):
     ) -> None:
         """Wake the unit, optionally at a level."""
         if preset_mode is not None:
-            await self._async_write(self.coordinator.device.async_set_standby(False))
+            await self._async_write(
+                self.coordinator.device.async_set_standby(False), standby=False
+            )
             await self.async_set_preset_mode(preset_mode)
         else:
-            await self._async_write(self.coordinator.device.async_set_standby(False))
+            await self._async_write(
+                self.coordinator.device.async_set_standby(False), standby=False
+            )
 
     async def async_turn_off(self, **kwargs: Any) -> None:
         """Put the unit in standby."""
-        await self._async_write(self.coordinator.device.async_set_standby(True))
+        await self._async_write(
+            self.coordinator.device.async_set_standby(True), standby=True
+        )

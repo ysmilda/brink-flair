@@ -70,8 +70,10 @@ on its next poll and sends the level again.
 
 ## Data updates
 
-The unit is polled every 30 seconds. Changes made from Home Assistant are read
-back straight away.
+The unit is polled every 30 seconds. Changes made from Home Assistant show
+straight away, before the unit confirms them. If the unit rejects a change, the
+previous value comes back and an error is shown. Each change is then read back
+from the unit.
 
 ## Examples
 

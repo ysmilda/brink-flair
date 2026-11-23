@@ -1,6 +1,8 @@
 """Tests for the Brink Flair entities."""
 
+import asyncio
 from datetime import timedelta
+from unittest.mock import patch
 
 from freezegun.api import FrozenDateTimeFactory
 from homeassistant.components.button import DOMAIN as BUTTON_DOMAIN, SERVICE_PRESS
@@ -46,6 +48,7 @@ from pytest_homeassistant_custom_component.common import (
 from custom_components.brink_flair.diagnostics import (
     async_get_config_entry_diagnostics,
 )
+from custom_components.brink_flair.flair import FlairDevice
 
 pytestmark = pytest.mark.usefixtures("init_integration")
 
@@ -120,6 +123,51 @@ async def test_fan_preset_when_already_in_control(
         {ATTR_ENTITY_ID: FAN, ATTR_PRESET_MODE: "low"},
     )
     assert patch_modbus.holding[8001] == 1
+
+
+async def test_fan_preset_shown_before_unit_confirms(
+    hass: HomeAssistant, patch_modbus: MockModbusUnit
+) -> None:
+    """A chosen level shows straight away, before the unit has answered."""
+    release = asyncio.Event()
+    send = FlairDevice._write
+
+    async def held_write(self: FlairDevice, address: int, value: int) -> None:
+        await release.wait()
+        await send(self, address, value)
+
+    with patch.object(FlairDevice, "_write", held_write):
+        call = asyncio.create_task(
+            _call(
+                hass,
+                FAN_DOMAIN,
+                SERVICE_SET_PRESET_MODE,
+                {ATTR_ENTITY_ID: FAN, ATTR_PRESET_MODE: "high"},
+            )
+        )
+        async with asyncio.timeout(2):
+            while hass.states.get(FAN).attributes[ATTR_PRESET_MODE] != "high":
+                await asyncio.sleep(0.01)
+        assert 8001 not in patch_modbus.holding
+
+        release.set()
+        await call
+    assert patch_modbus.holding[8001] == 3
+
+
+async def test_failed_write_restores_shown_state(
+    hass: HomeAssistant, patch_modbus: MockModbusUnit
+) -> None:
+    """A change the unit rejects is taken back out of the shown state."""
+    patch_modbus.fail_write(8001, ModbusTimeoutError("no answer"))
+    with pytest.raises(HomeAssistantError):
+        await _call(
+            hass,
+            FAN_DOMAIN,
+            SERVICE_SET_PRESET_MODE,
+            {ATTR_ENTITY_ID: FAN, ATTR_PRESET_MODE: "high"},
+        )
+    assert hass.states.get(FAN).attributes[ATTR_PRESET_MODE] == "normal"
 
 
 async def test_fan_turn_on_with_preset(

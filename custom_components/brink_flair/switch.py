@@ -22,6 +22,8 @@ class BrinkFlairSwitchDescription(SwitchEntityDescription):
 
     value_fn: Callable[[FlairState], bool | None]
     set_fn: Callable[[FlairDevice, bool], Coroutine[Any, Any, None]]
+    state_field: str
+    """The FlairState field that value_fn reads."""
 
 
 # Installer settings, so they start disabled.
@@ -33,6 +35,7 @@ SWITCHES: tuple[BrinkFlairSwitchDescription, ...] = (
         entity_registry_enabled_default=False,
         value_fn=lambda state: state.imbalance_allowed,
         set_fn=lambda device, on: device.async_set_imbalance_allowed(on),
+        state_field="imbalance_allowed",
     ),
     BrinkFlairSwitchDescription(
         key="geo_heat_exchanger",
@@ -41,6 +44,7 @@ SWITCHES: tuple[BrinkFlairSwitchDescription, ...] = (
         entity_registry_enabled_default=False,
         value_fn=lambda state: state.geo_heat_exchanger,
         set_fn=lambda device, on: device.async_set_geo_heat_exchanger(on),
+        state_field="geo_heat_exchanger",
     ),
 )
 
@@ -86,12 +90,14 @@ class BrinkFlairSwitch(BrinkFlairEntity, SwitchEntity):
 
     async def async_turn_on(self, **kwargs: Any) -> None:
         """Turn the setting on."""
-        await self._async_write(
-            self.entity_description.set_fn(self.coordinator.device, True)
-        )
+        await self._async_set(True)
 
     async def async_turn_off(self, **kwargs: Any) -> None:
         """Turn the setting off."""
+        await self._async_set(False)
+
+    async def _async_set(self, on: bool) -> None:
         await self._async_write(
-            self.entity_description.set_fn(self.coordinator.device, False)
+            self.entity_description.set_fn(self.coordinator.device, on),
+            **{self.entity_description.state_field: on},
         )

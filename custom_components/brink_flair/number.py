@@ -36,6 +36,8 @@ class BrinkFlairNumberDescription(NumberEntityDescription):
 
     value_fn: Callable[[FlairState], float | None]
     set_fn: Callable[[FlairDevice, float], Coroutine[Any, Any, None]]
+    state_field: str
+    """The FlairState field that value_fn reads."""
 
 
 SETTINGS: tuple[BrinkFlairNumberDescription, ...] = (
@@ -49,6 +51,7 @@ SETTINGS: tuple[BrinkFlairNumberDescription, ...] = (
         native_step=0.5,
         value_fn=lambda state: state.bypass_temp_indoor,
         set_fn=lambda device, value: device.async_set_bypass_temp_indoor(value),
+        state_field="bypass_temp_indoor",
     ),
     BrinkFlairNumberDescription(
         key="bypass_temp_outdoor",
@@ -60,6 +63,7 @@ SETTINGS: tuple[BrinkFlairNumberDescription, ...] = (
         native_step=0.5,
         value_fn=lambda state: state.bypass_temp_outdoor,
         set_fn=lambda device, value: device.async_set_bypass_temp_outdoor(value),
+        state_field="bypass_temp_outdoor",
     ),
     BrinkFlairNumberDescription(
         key="bypass_hysteresis",
@@ -72,6 +76,7 @@ SETTINGS: tuple[BrinkFlairNumberDescription, ...] = (
         entity_registry_enabled_default=False,
         value_fn=lambda state: state.bypass_hysteresis,
         set_fn=lambda device, value: device.async_set_bypass_hysteresis(value),
+        state_field="bypass_hysteresis",
     ),
     BrinkFlairNumberDescription(
         key="filter_interval",
@@ -84,6 +89,7 @@ SETTINGS: tuple[BrinkFlairNumberDescription, ...] = (
         mode=NumberMode.BOX,
         value_fn=lambda state: state.filter_interval_days,
         set_fn=lambda device, value: device.async_set_filter_interval(int(value)),
+        state_field="filter_interval_days",
     ),
     # Installer settings, so they start disabled.
     BrinkFlairNumberDescription(
@@ -97,6 +103,7 @@ SETTINGS: tuple[BrinkFlairNumberDescription, ...] = (
         entity_registry_enabled_default=False,
         value_fn=lambda state: state.supply_imbalance,
         set_fn=lambda device, value: device.async_set_supply_imbalance(int(value)),
+        state_field="supply_imbalance",
     ),
     BrinkFlairNumberDescription(
         key="exhaust_imbalance",
@@ -109,6 +116,7 @@ SETTINGS: tuple[BrinkFlairNumberDescription, ...] = (
         entity_registry_enabled_default=False,
         value_fn=lambda state: state.exhaust_imbalance,
         set_fn=lambda device, value: device.async_set_exhaust_imbalance(int(value)),
+        state_field="exhaust_imbalance",
     ),
     BrinkFlairNumberDescription(
         key="geo_min_temp",
@@ -121,6 +129,7 @@ SETTINGS: tuple[BrinkFlairNumberDescription, ...] = (
         entity_registry_enabled_default=False,
         value_fn=lambda state: state.geo_min_temp,
         set_fn=lambda device, value: device.async_set_geo_min_temp(value),
+        state_field="geo_min_temp",
     ),
     BrinkFlairNumberDescription(
         key="geo_max_temp",
@@ -133,6 +142,7 @@ SETTINGS: tuple[BrinkFlairNumberDescription, ...] = (
         entity_registry_enabled_default=False,
         value_fn=lambda state: state.geo_max_temp,
         set_fn=lambda device, value: device.async_set_geo_max_temp(value),
+        state_field="geo_max_temp",
     ),
 )
 
@@ -183,8 +193,12 @@ class BrinkFlairSettingNumber(BrinkFlairEntity, NumberEntity):
 
     async def async_set_native_value(self, value: float) -> None:
         """Change the setting."""
+        field = self.entity_description.state_field
+        # Keep the field's type: whole-number settings are stored as int.
+        current = getattr(self.coordinator.data, field)
         await self._async_write(
-            self.entity_description.set_fn(self.coordinator.device, value)
+            self.entity_description.set_fn(self.coordinator.device, value),
+            **{field: type(current)(value)},
         )
 
 
@@ -237,6 +251,9 @@ class BrinkFlairFlowPresetNumber(BrinkFlairEntity, NumberEntity):
                     "upper": str(upper),
                 },
             )
+        presets = list(presets)
+        presets[self._level] = flow
         await self._async_write(
-            self.coordinator.device.async_set_flow_preset(self._level, flow)
+            self.coordinator.device.async_set_flow_preset(self._level, flow),
+            flow_presets=tuple(presets),
         )
