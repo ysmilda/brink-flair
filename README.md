@@ -44,7 +44,7 @@ To remove it, delete the entry from **Devices & services**.
 
 | Entity | Type | Notes |
 | --- | --- | --- |
-| Ventilation | fan | Speeds 1 to 4 (away, low, normal, high) and off. Off puts the unit in standby. The `actual_percentage` attribute shows the measured supply airflow as a percentage of the unit's max flow. |
+| Ventilation | fan | An airflow from 1% (the model's min flow) to 100% (its max flow), the presets away, low, normal and high for the unit's own levels, and off. Off puts the unit in standby. The `actual_percentage` attribute shows the measured supply airflow on the same scale. |
 | Airflow away / low / normal / high | number | m³/h behind each level, kept in order |
 | Bypass mode | select | Automatic, closed or open |
 | Bypass indoor / outdoor temperature, hysteresis | number | The automatic bypass limits |
@@ -60,13 +60,15 @@ To remove it, delete the entry from **Devices & services**.
 
 ### How control works
 
-Choosing a speed takes over control through Modbus. While Home Assistant is in
-control, the unit's display and wall switch can't change the level. The
+Choosing a speed or a preset takes over control through Modbus. A speed sets
+the airflow directly; a preset sets one of the unit's levels, which use the
+airflows configured for them. While Home Assistant is in control, the unit's
+display and wall switch can't change the level. The
 integration can't hand control back, so once it has taken control, the display
 and wall switch stay locked out.
 
 The Flair forgets Modbus control after a power cut. The integration notices this
-on its next poll and sends the level again.
+on its next poll and sends the level or airflow again.
 
 ## Data updates
 

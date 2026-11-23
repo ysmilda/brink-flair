@@ -61,6 +61,8 @@ class FlairState:
     ventilation_mode: int
     switch_position: int
     control_mode: int
+    control_level: int
+    control_flow: int
     standby: bool
 
     supply_fan_status: int
@@ -171,7 +173,9 @@ class FlairDevice(FlairWrites):
         """Wrap a Modbus unit."""
         self._unit = unit
         self.identity: FlairIdentity | None = None
-        self._requested_level: r.VentilationLevel | None = None
+        # What Home Assistant last asked for: a control mode and its value,
+        # a level in switch mode or m3/h in flow mode.
+        self._requested: tuple[r.ControlMode, int] | None = None
         self._unsupported: set[tuple[str, int]] = set()
 
     @property
@@ -247,20 +251,20 @@ class FlairDevice(FlairWrites):
         settings = await self._read_settings()
 
         control_mode = control[0]
-        if (
-            self._requested_level is None
-            and control_mode == r.ControlMode.SWITCH
-            and control[1] in iter(r.VentilationLevel)
-        ):
-            # Pick up a level set before Home Assistant restarted.
-            self._requested_level = r.VentilationLevel(control[1])
-        if self._requested_level is not None and control_mode == r.ControlMode.OFF:
+        if self._requested is None:
+            # Pick up a level or flow set before Home Assistant restarted.
+            if control_mode == r.ControlMode.SWITCH and control[1] in iter(
+                r.VentilationLevel
+            ):
+                self._requested = (r.ControlMode.SWITCH, control[1])
+            elif control_mode == r.ControlMode.FLOW:
+                self._requested = (r.ControlMode.FLOW, control[2])
+        if self._requested is not None and control_mode == r.ControlMode.OFF:
             # The remote control registers reset after a power cut.
-            _LOGGER.info(
-                "Modbus control was reset, sending the ventilation level again"
-            )
-            await self._apply_level(self._requested_level)
-            control_mode = r.ControlMode.SWITCH
+            _LOGGER.info("Modbus control was reset, sending the last setting again")
+            await self._apply_control(*self._requested)
+            control = await self._read("holding", r.RC_CONTROL, 4)
+            control_mode = control[0]
 
         state = FlairState(
             active_function=status[0],
@@ -268,6 +272,8 @@ class FlairDevice(FlairWrites):
             ventilation_mode=status[2],
             switch_position=sensors[0],
             control_mode=control_mode,
+            control_level=control[1],
+            control_flow=control[2],
             standby=control[3] == 1,
             supply_pressure=_signed(status[3]) / 10,
             exhaust_pressure=_signed(status[4]) / 10,
@@ -331,15 +337,25 @@ class FlairDevice(FlairWrites):
             }
         return values
 
-    async def _apply_level(self, level: r.VentilationLevel) -> None:
+    async def _apply_control(self, mode: r.ControlMode, value: int) -> None:
         # A Flair 300 rejects a write of 8000 that does not change it
         # (Illegal Data Value), so only switch it when it is not set yet.
         (control_mode,) = await self._read("holding", r.RC_CONTROL, 1)
-        if control_mode != r.ControlMode.SWITCH:
-            await self._write(r.RC_CONTROL, r.ControlMode.SWITCH)
-        await self._write(r.RC_SWITCH_POSITION, level)
+        if control_mode != mode:
+            await self._write(r.RC_CONTROL, mode)
+        address = (
+            r.RC_SWITCH_POSITION if mode == r.ControlMode.SWITCH else r.RC_FLOW_RATE
+        )
+        await self._write(address, value)
 
     async def async_set_level(self, level: r.VentilationLevel) -> None:
         """Take over control and set the ventilation level."""
-        await self._apply_level(level)
-        self._requested_level = level
+        await self._apply_control(r.ControlMode.SWITCH, level)
+        self._requested = (r.ControlMode.SWITCH, level)
+
+    async def async_set_flow(self, flow: int) -> None:
+        """Take over control and set the airflow in m3/h, within the model's range."""
+        model = self.model
+        flow = min(model.max_flow, max(model.min_flow, flow))
+        await self._apply_control(r.ControlMode.FLOW, flow)
+        self._requested = (r.ControlMode.FLOW, flow)

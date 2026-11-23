@@ -11,6 +11,7 @@ from homeassistant.components.fan import (
     ATTR_PRESET_MODE,
     DOMAIN as FAN_DOMAIN,
     SERVICE_SET_PERCENTAGE,
+    SERVICE_SET_PRESET_MODE,
 )
 from homeassistant.components.number import (
     ATTR_VALUE,
@@ -55,6 +56,16 @@ pytestmark = pytest.mark.usefixtures("init_integration")
 FAN = "fan.flair"
 
 
+@pytest.fixture
+def mock_unit(
+    mock_unit: MockModbusUnit, request: pytest.FixtureRequest
+) -> MockModbusUnit:
+    """The mock Flair, starting with the control registers 8000 to 8003 given."""
+    if (control := getattr(request, "param", None)) is not None:
+        mock_unit.holding[8000] = control
+    return mock_unit
+
+
 async def _call(hass: HomeAssistant, domain: str, service: str, data: dict) -> None:
     await hass.services.async_call(domain, service, data, blocking=True)
 
@@ -93,37 +104,54 @@ async def test_optional_parts_absent(
 
 
 async def test_fan_state(hass: HomeAssistant) -> None:
-    """The fan shows the current speed: normal is speed 3 of 4."""
+    """The fan shows the level's airflow: normal is 200 of 50 to 300 m3/h."""
     state = hass.states.get(FAN)
     assert state.state == STATE_ON
-    assert state.attributes[ATTR_PERCENTAGE] == 75
-    assert state.attributes[ATTR_PRESET_MODE] is None
-    # The unit measures 148 m3/h of supply air, out of 300 m3/h max.
-    assert state.attributes["actual_percentage"] == 49
+    assert state.attributes[ATTR_PERCENTAGE] == 60
+    assert state.attributes[ATTR_PRESET_MODE] == "normal"
+    # The unit measures 148 m3/h of supply air, on the same scale.
+    assert state.attributes["actual_percentage"] == 40
 
 
-async def test_fan_speed(hass: HomeAssistant, patch_modbus: MockModbusUnit) -> None:
-    """Speed 2 of 4 is the low level, at 50%."""
+@pytest.mark.parametrize(("percentage", "flow"), [(1, 50), (50, 174), (100, 300)])
+async def test_fan_speed_sets_flow(
+    hass: HomeAssistant, patch_modbus: MockModbusUnit, percentage: int, flow: int
+) -> None:
+    """1 to 100% is the model's min to max flow, set in flow mode."""
     await _call(
         hass,
         FAN_DOMAIN,
         SERVICE_SET_PERCENTAGE,
-        {ATTR_ENTITY_ID: FAN, ATTR_PERCENTAGE: 50},
+        {ATTR_ENTITY_ID: FAN, ATTR_PERCENTAGE: percentage},
     )
-    assert patch_modbus.holding[8001] == 1
+    assert patch_modbus.holding[8000] == 2
+    assert patch_modbus.holding[8002] == flow
+    state = hass.states.get(FAN)
+    assert state.attributes[ATTR_PERCENTAGE] == percentage
+    assert state.attributes[ATTR_PRESET_MODE] is None
 
 
-async def test_fan_speed_rounds_up(
+async def test_fan_speed_reads_back_at_once(
     hass: HomeAssistant, patch_modbus: MockModbusUnit
 ) -> None:
-    """A small percentage is the lowest speed, not off."""
+    """A new airflow shows right away, before the unit's own setpoint catches up."""
     await _call(
         hass,
         FAN_DOMAIN,
         SERVICE_SET_PERCENTAGE,
-        {ATTR_ENTITY_ID: FAN, ATTR_PERCENTAGE: 1},
+        {ATTR_ENTITY_ID: FAN, ATTR_PERCENTAGE: 100},
     )
-    assert patch_modbus.holding[8001] == 0
+    # Register 4031 still reports 140 m3/h.
+    assert hass.states.get(FAN).attributes[ATTR_PERCENTAGE] == 100
+
+
+@pytest.mark.parametrize("mock_unit", [[0, 0, 0, 0]], indirect=True)
+async def test_fan_follows_unit_without_modbus_control(hass: HomeAssistant) -> None:
+    """When the unit runs itself, the fan shows the unit's own setpoint."""
+    state = hass.states.get(FAN)
+    # 140 m3/h of 50 to 300 m3/h.
+    assert state.attributes[ATTR_PERCENTAGE] == 37
+    assert state.attributes[ATTR_PRESET_MODE] is None
 
 
 async def test_fan_percentage_zero_turns_off(
@@ -139,20 +167,35 @@ async def test_fan_percentage_zero_turns_off(
     assert patch_modbus.holding[8003] == 1
 
 
-async def test_fan_speed_takes_over_control(
-    hass: HomeAssistant, patch_modbus: MockModbusUnit
+@pytest.mark.parametrize("mock_unit", [[2, 0, 150, 0]], indirect=True)
+async def test_fan_picks_up_flow_mode(hass: HomeAssistant) -> None:
+    """An airflow set before a restart shows as a percentage, with no preset."""
+    state = hass.states.get(FAN)
+    # 150 m3/h of 50 to 300 m3/h.
+    assert state.attributes[ATTR_PERCENTAGE] == 41
+    assert state.attributes[ATTR_PRESET_MODE] is None
+
+
+@pytest.mark.parametrize("mock_unit", [[2, 0, 150, 0]], indirect=True)
+@pytest.mark.parametrize(
+    ("preset", "level"), [("away", 0), ("low", 1), ("normal", 2), ("high", 3)]
+)
+async def test_fan_preset_sets_level(
+    hass: HomeAssistant, patch_modbus: MockModbusUnit, preset: str, level: int
 ) -> None:
-    """A speed takes over control and sets the level."""
+    """A preset is one of the unit's levels, and leaves flow mode."""
     await _call(
         hass,
         FAN_DOMAIN,
-        SERVICE_SET_PERCENTAGE,
-        {ATTR_ENTITY_ID: FAN, ATTR_PERCENTAGE: 100},
+        SERVICE_SET_PRESET_MODE,
+        {ATTR_ENTITY_ID: FAN, ATTR_PRESET_MODE: preset},
     )
-    assert patch_modbus.holding[8001] == 3
+    assert patch_modbus.holding[8000] == 1
+    assert patch_modbus.holding[8001] == level
+    assert hass.states.get(FAN).attributes[ATTR_PRESET_MODE] == preset
 
 
-async def test_speed_when_already_in_control(
+async def test_preset_when_already_in_control(
     hass: HomeAssistant, patch_modbus: MockModbusUnit
 ) -> None:
     """A Flair 300 rejects rewriting 8000, so it is left alone when already set."""
@@ -160,8 +203,8 @@ async def test_speed_when_already_in_control(
     await _call(
         hass,
         FAN_DOMAIN,
-        SERVICE_SET_PERCENTAGE,
-        {ATTR_ENTITY_ID: FAN, ATTR_PERCENTAGE: 50},
+        SERVICE_SET_PRESET_MODE,
+        {ATTR_ENTITY_ID: FAN, ATTR_PRESET_MODE: "low"},
     )
     assert patch_modbus.holding[8001] == 1
 
@@ -198,13 +241,13 @@ async def test_unit_read_back_straight_after_write(
         )
         await asyncio.sleep(0.05)
         # Nothing is shown before the unit has confirmed the write.
-        assert hass.states.get(FAN).attributes[ATTR_PERCENTAGE] == 75
+        assert hass.states.get(FAN).attributes[ATTR_PERCENTAGE] == 60
         assert reads == 0
-        assert 8001 not in patch_modbus.holding
+        assert 8002 not in patch_modbus.holding
 
         release.set()
         await call
-    assert patch_modbus.holding[8001] == 3
+    assert patch_modbus.holding[8002] == 300
     assert reads == 1
 
 
@@ -212,7 +255,7 @@ async def test_failed_write_restores_shown_state(
     hass: HomeAssistant, patch_modbus: MockModbusUnit
 ) -> None:
     """A change the unit rejects leaves the state as it was."""
-    patch_modbus.fail_write(8001, ModbusTimeoutError("no answer"))
+    patch_modbus.fail_write(8002, ModbusTimeoutError("no answer"))
     with pytest.raises(HomeAssistantError):
         await _call(
             hass,
@@ -220,20 +263,37 @@ async def test_failed_write_restores_shown_state(
             SERVICE_SET_PERCENTAGE,
             {ATTR_ENTITY_ID: FAN, ATTR_PERCENTAGE: 100},
         )
-    assert hass.states.get(FAN).attributes[ATTR_PERCENTAGE] == 75
+    assert hass.states.get(FAN).attributes[ATTR_PERCENTAGE] == 60
 
 
+@pytest.mark.parametrize("mock_unit", [[1, 2, 0, 1]], indirect=True)
 async def test_fan_turn_on_with_speed(
     hass: HomeAssistant, patch_modbus: MockModbusUnit
 ) -> None:
-    """Turning on with a speed wakes the unit at that level."""
+    """Turning on with a speed wakes the unit at that airflow."""
     await _call(
         hass,
         FAN_DOMAIN,
         SERVICE_TURN_ON,
         {ATTR_ENTITY_ID: FAN, ATTR_PERCENTAGE: 50},
     )
-    assert patch_modbus.holding[8001] == 1
+    assert patch_modbus.holding[8003] == 2
+    assert patch_modbus.holding[8002] == 174
+
+
+@pytest.mark.parametrize("mock_unit", [[1, 2, 0, 1]], indirect=True)
+async def test_fan_turn_on_with_preset(
+    hass: HomeAssistant, patch_modbus: MockModbusUnit
+) -> None:
+    """Turning on with a preset wakes the unit at that level."""
+    await _call(
+        hass,
+        FAN_DOMAIN,
+        SERVICE_TURN_ON,
+        {ATTR_ENTITY_ID: FAN, ATTR_PRESET_MODE: "high"},
+    )
+    assert patch_modbus.holding[8003] == 2
+    assert patch_modbus.holding[8001] == 3
 
 
 async def test_fan_off_and_on(
@@ -243,7 +303,9 @@ async def test_fan_off_and_on(
     await _call(hass, FAN_DOMAIN, SERVICE_TURN_OFF, {ATTR_ENTITY_ID: FAN})
     assert patch_modbus.holding[8003] == 1
     await hass.async_block_till_done()
-    assert hass.states.get(FAN).state == STATE_OFF
+    state = hass.states.get(FAN)
+    assert state.state == STATE_OFF
+    assert state.attributes[ATTR_PRESET_MODE] is None
 
     await _call(hass, FAN_DOMAIN, SERVICE_TURN_ON, {ATTR_ENTITY_ID: FAN})
     assert patch_modbus.holding[8003] == 2
@@ -258,8 +320,8 @@ async def test_level_restored_after_power_cut(
     await _call(
         hass,
         FAN_DOMAIN,
-        SERVICE_SET_PERCENTAGE,
-        {ATTR_ENTITY_ID: FAN, ATTR_PERCENTAGE: 50},
+        SERVICE_SET_PRESET_MODE,
+        {ATTR_ENTITY_ID: FAN, ATTR_PRESET_MODE: "low"},
     )
     patch_modbus.holding[8000] = 0
     patch_modbus.holding[8001] = 0
@@ -269,6 +331,30 @@ async def test_level_restored_after_power_cut(
     await hass.async_block_till_done()
     assert patch_modbus.holding[8000] == 1
     assert patch_modbus.holding[8001] == 1
+    assert hass.states.get(FAN).attributes[ATTR_PRESET_MODE] == "low"
+
+
+async def test_flow_restored_after_power_cut(
+    hass: HomeAssistant,
+    patch_modbus: MockModbusUnit,
+    freezer: FrozenDateTimeFactory,
+) -> None:
+    """An airflow set from Home Assistant is sent again when the unit forgets it."""
+    await _call(
+        hass,
+        FAN_DOMAIN,
+        SERVICE_SET_PERCENTAGE,
+        {ATTR_ENTITY_ID: FAN, ATTR_PERCENTAGE: 50},
+    )
+    patch_modbus.holding[8000] = 0
+    patch_modbus.holding[8002] = 0
+
+    freezer.tick(timedelta(seconds=31))
+    async_fire_time_changed(hass)
+    await hass.async_block_till_done()
+    assert patch_modbus.holding[8000] == 2
+    assert patch_modbus.holding[8002] == 174
+    assert hass.states.get(FAN).attributes[ATTR_PERCENTAGE] == 50
 
 
 async def test_bypass_mode(hass: HomeAssistant, patch_modbus: MockModbusUnit) -> None:

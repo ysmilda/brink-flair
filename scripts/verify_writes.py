@@ -37,7 +37,7 @@ from flair import (
     FlairDevice,
     FlairState,
 )
-from flair.registers import BypassMode, VentilationLevel
+from flair.registers import BypassMode, ControlMode, VentilationLevel
 
 SETTLE = 3  # seconds before reading back
 
@@ -84,6 +84,46 @@ async def _check(
     return ok
 
 
+async def _check_flow(device: FlairDevice, state: FlairState) -> bool:
+    """Set an airflow in flow mode, read it back, then return to the old control."""
+    model = device.model
+    flow = (model.min_flow + model.max_flow) // 2
+    if flow == state.control_flow:
+        flow += 25
+    ok = True
+    try:
+        await device.async_set_flow(flow)
+        await asyncio.sleep(SETTLE)
+        after = await device.async_update()
+        ok = after.control_mode == ControlMode.FLOW and after.control_flow == flow
+        print(
+            f"{'OK  ' if ok else 'FAIL'} airflow: -> {flow} m3/h, read back"
+            f" {after.control_flow} m3/h in control mode {after.control_mode},"
+            f" unit setpoint {after.supply_flow_setpoint} m3/h"
+        )
+    except ModbusError as err:
+        ok = False
+        print(f"FAIL airflow: -> {flow}: {type(err).__name__}: {err}")
+    finally:
+        try:
+            if state.control_mode == ControlMode.FLOW:
+                await device.async_set_flow(state.control_flow)
+            elif state.control_level in iter(VentilationLevel):
+                await device.async_set_level(VentilationLevel(state.control_level))
+            await asyncio.sleep(SETTLE)
+            restored = await device.async_update()
+            if restored.control_mode != state.control_mode:
+                ok = False
+                print(
+                    f"     airflow: NOT RESTORED, control mode now"
+                    f" {restored.control_mode}, was {state.control_mode}"
+                )
+        except ModbusError as err:
+            ok = False
+            print(f"     airflow: RESTORE FAILED: {type(err).__name__}: {err}")
+    return ok
+
+
 async def main() -> None:
     """Run every write check."""
     host = sys.argv[1]
@@ -114,6 +154,7 @@ async def main() -> None:
             device.async_set_level,
             other,
         )
+        results.append(await _check_flow(device, state))
         await check(
             "standby", lambda s: s.standby, device.async_set_standby, not state.standby
         )
